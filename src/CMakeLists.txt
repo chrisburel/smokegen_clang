@@ -11,6 +11,7 @@ add_executable(smokegen
     astconsumer.cpp
     astvisitor.cpp
     frontendaction.cpp
+    ppcallbacks.cpp
     main.cpp
 )
 
