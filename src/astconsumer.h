@@ -6,9 +6,13 @@
 
 #include "astvisitor.h"
 
+class SmokegenPPCallbacks;
+
 class SmokegenASTConsumer : public clang::ASTConsumer {
 public:
     SmokegenASTConsumer(clang::CompilerInstance &ci) : ci(ci) {}
+
+    virtual void Initialize(clang::ASTContext &ctx) override;
 
     // Override the method that gets called for each parsed top-level
     // declaration.
@@ -17,6 +21,7 @@ public:
 private:
     SmokegenASTVisitor Visitor;
     clang::CompilerInstance &ci;
+    SmokegenPPCallbacks *ppCallbacks;
 };
 
 #endif
