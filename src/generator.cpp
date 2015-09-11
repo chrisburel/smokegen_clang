@@ -4,6 +4,9 @@ void SmokeGenerator::addClass(clang::CXXRecordDecl* D) {
     llvm::outs() << D->getQualifiedNameAsString() << "\n";
 
     for (auto method : D->methods()) {
+        if (method->getAccess() == clang::AS_private)
+            continue;
+
         std::string signature("    ");
 
         signature += method->getNameAsString() + "(";
