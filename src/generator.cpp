@@ -38,6 +38,7 @@ void SmokeGenerator::addClass(clang::CXXRecordDecl* D) {
         }
 
         auto munged = mungedName(method);
+        methodNames.insert(method->getNameAsString());
         methodNames.insert(munged);
 
         signature += mungedName(method);
