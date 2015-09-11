@@ -2,17 +2,16 @@
 #define SMOKEGEN_ASTVISITOR
 
 #include <clang/AST/RecursiveASTVisitor.h>
-#include "options.h"
+#include "generator.h"
 
 class SmokegenASTVisitor : public clang::RecursiveASTVisitor<SmokegenASTVisitor> {
 public:
-    SmokegenASTVisitor(Options *options) :
-        options(options) {}
+    SmokegenASTVisitor(SmokeGenerator &generator) : generator(generator) {}
 
     bool VisitCXXRecordDecl(clang::CXXRecordDecl *D);
 
 private:
-    Options *options;
+    SmokeGenerator &generator;
 };
 
 #endif

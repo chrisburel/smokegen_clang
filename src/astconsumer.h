@@ -12,7 +12,7 @@ class SmokegenPPCallbacks;
 class SmokegenASTConsumer : public clang::ASTConsumer {
 public:
     SmokegenASTConsumer(clang::CompilerInstance &ci, Options *options) :
-        ci(ci), Visitor(options) {}
+        ci(ci), generator(options), Visitor(generator) {}
 
     virtual void Initialize(clang::ASTContext &ctx) override;
 
@@ -20,7 +20,11 @@ public:
     // declaration.
     bool HandleTopLevelDecl(clang::DeclGroupRef DR) override;
 
+    // Override the method that gets called once the translation unit is parsed
+    void HandleTranslationUnit(clang::ASTContext& Ctx) override;
+
 private:
+    SmokeGenerator generator;
     SmokegenASTVisitor Visitor;
     clang::CompilerInstance &ci;
     SmokegenPPCallbacks *ppCallbacks;
