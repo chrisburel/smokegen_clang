@@ -16,5 +16,5 @@ bool SmokegenASTConsumer::HandleTopLevelDecl(clang::DeclGroupRef DR) {
 }
 
 void SmokegenASTConsumer::HandleTranslationUnit(clang::ASTContext& Ctx) {
-    llvm::outs() << generator.getMethodNamesCode();
+    llvm::outs() << generator.getDataFileCode();
 }

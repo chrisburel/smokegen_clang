@@ -16,6 +16,7 @@ public:
     char munge(clang::QualType T) const;
 
     // Data file methods
+    std::string getDataFileCode() const;
     std::string getMethodNamesCode() const;
 
 private:
