@@ -6,12 +6,12 @@
 
 class SmokegenASTVisitor : public clang::RecursiveASTVisitor<SmokegenASTVisitor> {
 public:
-    SmokegenASTVisitor() {}
+    SmokegenASTVisitor(SmokeGenerator &generator) : generator(generator) {}
 
     bool VisitCXXRecordDecl(clang::CXXRecordDecl *D);
 
 private:
-    SmokeGenerator generator;
+    SmokeGenerator &generator;
 };
 
 #endif

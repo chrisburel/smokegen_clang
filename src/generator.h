@@ -15,6 +15,9 @@ public:
     std::string mungedName(clang::FunctionDecl *D) const;
     char munge(clang::QualType T) const;
 
+    // Data file methods
+    std::string getMethodNamesCode() const;
+
 private:
     std::set<std::string> methodNames = {""};
 

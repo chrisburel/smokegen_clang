@@ -20,3 +20,7 @@ bool SmokegenASTConsumer::HandleTopLevelDecl(clang::DeclGroupRef DR) {
     }
     return true;
 }
+
+void SmokegenASTConsumer::HandleTranslationUnit(clang::ASTContext& Ctx) {
+    llvm::outs() << generator.getMethodNamesCode();
+}
