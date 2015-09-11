@@ -45,6 +45,10 @@ void SmokeGenerator::addClass(clang::CXXRecordDecl* D) {
 
         llvm::outs() << signature + "\n";
     }
+
+    // Our x_* subclasses will all have destructors.  Add the destructor method
+    // to the methodNames set.
+    methodNames.insert('~' + D->getNameAsString());
 }
 
 std::string SmokeGenerator::mungedName(clang::FunctionDecl *D) const {
