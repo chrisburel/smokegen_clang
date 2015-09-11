@@ -1,7 +1,11 @@
+#include <algorithm>
+
 #include "generator.h"
 
 void SmokeGenerator::addClass(clang::CXXRecordDecl* D) {
     llvm::outs() << D->getQualifiedNameAsString() << "\n";
+
+    classes[D->getQualifiedNameAsString()] = D;
 
     for (auto method : D->methods()) {
         if (method->getAccess() == clang::AS_private)
@@ -75,9 +79,34 @@ char SmokeGenerator::munge(clang::QualType type) const {
     }
 }
 
+std::string SmokeGenerator::getClassesCode() const {
+    std::string output("// List of all classes\n"
+            "// Name, external, index into inheritanceList, method dispatcher, enum dispatcher, class flags, size\n"
+            "static Smoke::Class classes[] = {\n"
+            "    { 0L, false, 0, 0, 0, 0, 0 },	// 0 (no class)\n");
+
+    int i = 1;
+    for (auto const & kv : classes) {
+        output += "    {"
+            "\"" + kv.first + "\", " // name
+            "false, " + // external
+            "0, " + // index into inheritance list
+            getXCallName(kv.second) + ", " // method dispacher
+            "0, " // enum dispacher
+            "0, " // class flags
+            "sizeof(" + kv.first + ") },\t" // size
+            "//" + std::to_string(i++) + "\n";
+    }
+
+    output += "};\n";
+
+    return output;
+}
+
 std::string SmokeGenerator::getDataFileCode() const {
     std::string output;
-    output += getMethodNamesCode();
+    output += getClassesCode() + "\n";
+    output += getMethodNamesCode() + "\n";
     return output;
 }
 
@@ -91,4 +120,10 @@ std::string SmokeGenerator::getMethodNamesCode() const {
     }
     output += "};\n";
     return output;
+}
+
+std::string SmokeGenerator::getXCallName(clang::CXXRecordDecl *D) const {
+    std::string xcallName = "xcall_" + D->getQualifiedNameAsString();
+    std::replace(xcallName.begin(), xcallName.end(), ':', '_');
+    return xcallName;
 }
