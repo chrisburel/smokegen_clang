@@ -66,3 +66,15 @@ char SmokeGenerator::munge(clang::QualType type) const {
         return '?';
     }
 }
+
+std::string SmokeGenerator::getMethodNamesCode() const {
+    std::string output("// Raw list of all methods, using munged names\n"
+            "static const char *methodNames[] = {\n");
+
+    int i = 0;
+    for (auto name : methodNames) {
+        output += "    \"" + name + "\",\t//" + std::to_string(i++) + "\n";
+    }
+    output += "};\n";
+    return output;
+}
