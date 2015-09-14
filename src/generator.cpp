@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <list>
 
 #include "generator.h"
 
@@ -80,27 +81,79 @@ char SmokeGenerator::munge(clang::QualType type) const {
 }
 
 std::string SmokeGenerator::getClassesCode() const {
+    // Initialize the inheritance list to one with no inheritance.
+    std::list<std::list<clang::QualType> > inheritanceList = {{}};
+
+    std::list<const clang::Type *> allClassTypes;
+
+    std::string inheritanceOutput(
+            "// Group of Indexes (0 separated) used as super class lists.\n"
+            "// Classes with super classes have an index into this array.\n"
+            "static Smoke::Index inheritanceList[] = {\n");
+
+
     std::string output("// List of all classes\n"
             "// Name, external, index into inheritanceList, method dispatcher, enum dispatcher, class flags, size\n"
             "static Smoke::Class classes[] = {\n"
             "    { 0L, false, 0, 0, 0, 0, 0 },	// 0 (no class)\n");
 
+
     int i = 1;
     for (auto const & kv : classes) {
-        output += "    {"
+        // Find inheritance index
+        int inheritanceIndex = 0;
+        auto klass = kv.second;
+        std::list<clang::QualType> bases;
+        for (auto base : klass->bases()) {
+            bases.push_back(base.getType());
+        }
+        auto found = std::find(inheritanceList.begin(), inheritanceList.end(), bases);
+        if (found == inheritanceList.end()) {
+            inheritanceList.push_back(bases);
+            found = --inheritanceList.end();
+        }
+        for (auto it = inheritanceList.begin(); it != found; ++it) {
+            inheritanceIndex += (*it).size() + 1;
+        }
+
+        output += "    { "
             "\"" + kv.first + "\", " // name
             "false, " + // external
-            "0, " + // index into inheritance list
+            std::to_string(inheritanceIndex) + ", " + // index into inheritance list
             getXCallName(kv.second) + ", " // method dispacher
             "0, " // enum dispacher
             "0, " // class flags
             "sizeof(" + kv.first + ") },\t" // size
             "//" + std::to_string(i++) + "\n";
+
+        allClassTypes.push_back(klass->getTypeForDecl());
+    }
+
+    i = 0;
+    for (auto const & inheritanceGroup : inheritanceList) {
+        std::string thisLine("    ");
+        std::string typeNameList;
+        for (auto const & entry : inheritanceGroup) {
+            auto found = std::find(allClassTypes.begin(), allClassTypes.end(), &(*entry));
+            int distance = std::distance(allClassTypes.begin(), found) + 1; // account for leading empty entry
+            thisLine += std::to_string(distance) + ", ";
+            typeNameList += entry.getAsString();
+            typeNameList += ", ";
+        }
+        if (i == 0) {
+            typeNameList += "(no super class)";
+        }
+
+        thisLine += "0,\t// " + std::to_string(i) + ": " + typeNameList + "\n";
+        i += inheritanceGroup.size() + 1;
+
+        inheritanceOutput += thisLine;
     }
 
     output += "};\n";
+    inheritanceOutput += "};\n";
 
-    return output;
+    return inheritanceOutput + output;
 }
 
 std::string SmokeGenerator::getDataFileCode() const {
