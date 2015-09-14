@@ -22,6 +22,10 @@ public:
     std::string getMethodNamesCode() const;
     std::string getXCallName(clang::CXXRecordDecl *D) const;
 
+    bool canClassBeInstantiated(const clang::CXXRecordDecl *klass) const;
+    bool canClassBeCopied(const clang::CXXRecordDecl *klass) const;
+    bool hasClassVirtualDestructor(const clang::CXXRecordDecl *klass) const;
+
 private:
     std::map<std::string, clang::CXXRecordDecl *> classes;
     std::set<std::string> methodNames = {""};
