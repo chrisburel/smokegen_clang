@@ -8,6 +8,9 @@ bool SmokegenASTVisitor::VisitCXXRecordDecl(clang::CXXRecordDecl *D) {
     if (!D->getDeclName())
         return false;
 
+    if (D->getTypeForDecl()->getTypeClass() == clang::Type::InjectedClassName)
+        return false;
+
     generator.addClass(D);
 
     return true;

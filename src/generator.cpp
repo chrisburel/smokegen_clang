@@ -4,8 +4,6 @@
 #include "generator.h"
 
 void SmokeGenerator::addClass(clang::CXXRecordDecl* D) {
-    llvm::outs() << D->getQualifiedNameAsString() << "\n";
-
     classes[D->getQualifiedNameAsString()] = D;
 
     for (auto method : D->methods()) {
@@ -147,7 +145,9 @@ std::string SmokeGenerator::getClassesCode() const {
         std::string typeNameList;
         for (auto const & entry : inheritanceGroup) {
             auto found = std::find(allClassTypes.begin(), allClassTypes.end(), &(*entry));
-            int distance = std::distance(allClassTypes.begin(), found) + 1; // account for leading empty entry
+            int distance = found == allClassTypes.end() ?
+                0 : // Template instantiations won't have their bases in the allClassTypes list
+                std::distance(allClassTypes.begin(), found) + 1; // account for leading empty entry
             thisLine += std::to_string(distance) + ", ";
             typeNameList += entry.getAsString();
             typeNameList += ", ";
@@ -241,8 +241,6 @@ bool SmokeGenerator::canClassBeCopied(const clang::CXXRecordDecl *klass) const {
 }
 
 bool SmokeGenerator::hasClassVirtualDestructor(const clang::CXXRecordDecl *klass) const {
-    if (not klass) return false;
-
     bool virtualDtorFound = false;
     auto d = klass->getDestructor();
     if (d && d->isVirtual()) {
