@@ -15,6 +15,24 @@ void SmokeGenerator::addClass(clang::CXXRecordDecl* D) {
         methodNames.insert(munged);
     }
 
+    for (auto const & field : D->fields()) {
+        if (field->getAccess() == clang::AS_private)
+            continue;
+        // Add getter method for the field
+        methodNames.insert(field->getNameAsString());
+
+        // const non-pointer types can't be set
+        if (field->getType().isConstQualified() && !field->getType()->isPointerType())
+            continue;
+
+        // Add setter for the field
+        auto setterName = field->getNameAsString();
+        setterName[0] = std::toupper(setterName[0]);
+        setterName = "set" + setterName;
+        methodNames.insert(setterName);
+        methodNames.insert(setterName + munge(field->getType()));
+    }
+
     // Our x_* subclasses will all have destructors.  Add the destructor method
     // to the methodNames set.
     methodNames.insert('~' + D->getNameAsString());
