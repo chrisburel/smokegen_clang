@@ -15,6 +15,12 @@ void SmokeGenerator::addClass(clang::CXXRecordDecl* D) {
         methodNames.insert(munged);
     }
 
+    // Handle implicit copy constructor
+    if (D->needsImplicitCopyConstructor()) {
+        methodNames.insert(D->getQualifiedNameAsString());
+        methodNames.insert(D->getQualifiedNameAsString() + munge(clang::QualType(D->getTypeForDecl(), 0)));
+    }
+
     for (auto const & field : D->fields()) {
         if (field->getAccess() == clang::AS_private)
             continue;
