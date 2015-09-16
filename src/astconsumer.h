@@ -5,12 +5,14 @@
 #include <clang/Frontend/CompilerInstance.h>
 
 #include "astvisitor.h"
+#include "options.h"
 
 class SmokegenPPCallbacks;
 
 class SmokegenASTConsumer : public clang::ASTConsumer {
 public:
-    SmokegenASTConsumer(clang::CompilerInstance &ci) : ci(ci) {}
+    SmokegenASTConsumer(clang::CompilerInstance &ci, Options *options) :
+        ci(ci), Visitor(options) {}
 
     virtual void Initialize(clang::ASTContext &ctx) override;
 

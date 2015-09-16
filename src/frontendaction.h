@@ -4,13 +4,18 @@
 #include <clang/Frontend/FrontendActions.h>
 #include <clang/Frontend/CompilerInstance.h>
 
+struct Options;
+
 // For each source file provided to the tool, a new FrontendAction is created.
 class SmokegenFrontendAction : public clang::ASTFrontendAction {
 public:
-    SmokegenFrontendAction() {}
+    SmokegenFrontendAction(Options *options) : options(options) {}
 
     std::unique_ptr<clang::ASTConsumer>
     CreateASTConsumer(clang::CompilerInstance &CI, clang::StringRef file) override;
+
+private:
+    Options *options;
 };
 
 #endif
