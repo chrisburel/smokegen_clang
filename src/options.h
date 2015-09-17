@@ -11,8 +11,8 @@ struct Options {
     std::string module;
     std::vector<std::string> parentModules;
     std::string libDir;
-    std::vector<std::string> scalarTypes;
-    std::vector<std::string> voidpTypes;
+    std::vector<std::string> scalarTypes = {"long long", "long long int", "unsigned long long", "unsigned long long int"};
+    std::vector<std::string> voidpTypes = {"long long", "long long int", "unsigned long long", "unsigned long long int"};
     std::vector<std::string> headerList;
     std::vector<std::string> classList;
     bool qtMode;
