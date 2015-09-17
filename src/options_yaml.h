@@ -7,8 +7,11 @@
 LLVM_YAML_IS_SEQUENCE_VECTOR(std::string);
 LLVM_YAML_IS_SEQUENCE_VECTOR(std::regex);
 
+namespace llvm {
+namespace yaml {
+
 template <>
-struct llvm::yaml::ScalarTraits<std::regex> {
+struct ScalarTraits<std::regex> {
     static void output(const std::regex &value, void*, llvm::raw_ostream &out) {
     }
 
@@ -26,8 +29,8 @@ struct llvm::yaml::ScalarTraits<std::regex> {
 };
 
 template <>
-struct llvm::yaml::MappingTraits<Options> {
-    static void mapping(llvm::yaml::IO &io, Options &options) {
+struct MappingTraits<Options> {
+    static void mapping(IO &io, Options &options) {
         io.mapOptional("parts", options.parts);
         io.mapRequired("moduleName", options.module);
         io.mapOptional("parentModules", options.parentModules);
@@ -40,6 +43,8 @@ struct llvm::yaml::MappingTraits<Options> {
         io.mapOptional("exclude", options.excludeExpressions);
         io.mapOptional("functions", options.includeFunctionNames);
     }
+};
+};
 };
 
 #endif
