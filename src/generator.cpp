@@ -140,6 +140,11 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     }
     out << "};\n\n"; // end of inheritance list
 
+    // xenum functions
+    out << "// These are the xenum functions for manipulating enum pointers\n";
+    out << "\n";
+
+
     out << "}\n\n"; // end namespace definition
 
     out << "extern \"C\" {\n\n";
