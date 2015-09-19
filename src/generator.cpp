@@ -118,6 +118,10 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
 std::set<const clang::CXXRecordDecl *> SmokeGenerator::superClassList(const clang::CXXRecordDecl *klass) const {
     std::set<const clang::CXXRecordDecl *> ret;
 
+    // We can't get the base classes of a class that has no definition
+    if (!klass->hasDefinition())
+        return ret;
+
     for (auto const &base : klass->bases()) {
         clang::CXXRecordDecl *baseRecord = base.getType()->getAsCXXRecordDecl();
         if (baseRecord) {
