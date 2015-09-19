@@ -156,6 +156,51 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
         out << "void xcall_" << smokeClassName << "(Smoke::Index, void*, Smoke::Stack);\n";
     }
 
+    // classes table
+    out << "\n// List of all classes\n";
+    out << "// Name, external, index into inheritanceList, method dispatcher, enum dispatcher, class flags, size\n";
+    out << "static Smoke::Class classes[] = {\n";
+    out << "    { 0L, false, 0, 0, 0, 0, 0 },\t// 0 (no class)\n";
+    int classCount = 0;
+    for (auto const &iter : classIndex) {
+        if (!iter.second)
+            continue;
+
+        auto const &klass = classes[iter.first];
+
+        if (externalClasses.count(klass)) {
+            out << "    { \""  << iter.first << "\", true, 0, 0, 0, 0, 0 },\t//" << iter.second << "\n";
+        } else {
+            std::string smokeClassName = iter.first;
+            std::replace(smokeClassName.begin(), smokeClassName.end(), ':', '_');
+            out << "    { \"" << iter.first << "\", false" << ", "
+                << inheritanceIndex[klass] << ", xcall_" << smokeClassName << ", "
+                << "0" << ", ";
+            std::string flags;
+            if (klass) { // !klass->isNamespace()
+                if (canClassBeInstantiated(klass)) flags += "Smoke::cf_constructor|";
+                if (canClassBeCopied(klass)) flags += "Smoke::cf_deepcopy|";
+                if (hasClassVirtualDestructor(klass)) flags += "Smoke::cf_virtual|";
+                if (flags[flags.size()-1] == '|') {
+                    flags.pop_back();
+                }
+                else {
+                    flags = "0";
+                }
+            } else {
+                flags = "Smoke::cf_namespace";
+            }
+            out << flags << ", ";
+            if (klass) // !klass->isNamespace()
+                out << "sizeof(" << iter.first << ")";
+            else
+                out << '0';
+            out << " },\t//" << iter.second << "\n";
+        }
+        classCount = iter.second;
+    }
+    out << "};\n\n";
+
     out << "}\n\n"; // end namespace definition
 
     out << "extern \"C\" {\n\n";
