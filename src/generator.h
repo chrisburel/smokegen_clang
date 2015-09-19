@@ -40,6 +40,10 @@ private:
     // sorting for free because std::map.
     std::map<std::string, int> classIndex;
 
+    // A list of classes that do not appear in the classList, but are seen when
+    // reading the header files
+    std::set<const clang::CXXRecordDecl *> externalClasses;
+
     // A list of classes that appear in the classList from the options, and
     // have actually been found when reading the header files.
     std::vector<std::string> includedClasses;
