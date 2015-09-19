@@ -33,6 +33,59 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
 
     out << "namespace " << smokeNamespaceName << " {\n\n";
 
+    // Write out cast function
+    out << "static void *cast(void *xptr, Smoke::Index from, Smoke::Index to) {\n";
+    out << "  switch(from) {\n";
+    for (auto const &iter : classIndex) {
+        const clang::CXXRecordDecl *klass = classes[iter.first];
+
+        std::set<int> indices; // avoid duplicate case values (diamond-shape inheritance)
+        out << "    case " << iter.second << ":   //" << iter.first << "\n";
+        out << "      switch(to) {\n";
+        // Add our parent classes to the cast
+        for (auto const &base : superClassList(klass)) {
+            auto className = base->getQualifiedNameAsString();
+
+            if (contains(includedClasses, className)) {
+                int index = classIndex[className];
+                if (indices.count(index))
+                    continue;
+
+                indices.insert(index);
+
+                out << "        case " << index << ": return (void*)(" << className << "*)(" << klass->getQualifiedNameAsString() << "*)xptr;\n";
+            }
+        }
+        // Add ourself to the cast
+        out << "        case " << iter.second << ": return (void*)(" << klass->getQualifiedNameAsString() << "*)xptr;\n";
+
+        // Add our subclasses to the cast
+        for (auto const &desc : descendantsList(klass)) {
+            auto className = desc->getQualifiedNameAsString();
+
+            if (contains(includedClasses, className)) {
+                int index = classIndex[className];
+                if (indices.count(index))
+                    continue;
+
+                indices.insert(index);
+
+                //if (Util::isVirtualInheritancePath(desc, &klass)) {
+                //    out << QString("        case %1: return (void*)dynamic_cast<%2*>((%3*)xptr);\n")
+                //        .arg(index).arg(className).arg(klass.toString());
+                //} else {
+                    out << "        case " << index << ": return (void*)(" << className << "*)(" << klass->getQualifiedNameAsString() << "*)xptr;\n";
+                //}
+            }
+        }
+
+        out << "        default: return xptr;\n";
+        out << "      }\n";
+    }
+    out << "    default: return xptr;\n";
+    out << "  }\n";
+    out << "}\n\n";
+
     out << "}\n\n"; // end namespace definition
 
     out << "extern \"C\" {\n\n";
