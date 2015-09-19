@@ -262,3 +262,25 @@ bool SmokeGenerator::canClassBeCopied(const clang::CXXRecordDecl *klass) const {
     // class is copiable
     return (parentCanBeCopied && !privateCopyCtorFound);
 }
+
+bool SmokeGenerator::hasClassVirtualDestructor(const clang::CXXRecordDecl *klass) const {
+    if (not klass) return false;
+
+    bool virtualDtorFound = false;
+    auto d = klass->getDestructor();
+    if (d && d->isVirtual()) {
+        virtualDtorFound = true;
+    }
+
+    bool superClassHasVirtualDtor = false;
+    for (auto const & base : klass->bases()) {
+        if (hasClassVirtualDestructor(base.getType()->getAsCXXRecordDecl())) {
+            superClassHasVirtualDtor = true;
+            break;
+        }
+    }
+
+    // if the superclass has a virtual d'tor, then the descendants have one
+    // automatically, too
+    return (virtualDtorFound || superClassHasVirtualDtor);
+}
