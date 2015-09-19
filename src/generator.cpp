@@ -12,6 +12,8 @@ void SmokeGenerator::processDataStructures() {
         }
     }
 
+    classIndex["QGlobalSpace"] = 1;
+
     for (auto const &klass : classIndex) {
         includedClasses.push_back(klass.first);
     }
@@ -38,6 +40,8 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     out << "  switch(from) {\n";
     for (auto const &iter : classIndex) {
         const clang::CXXRecordDecl *klass = classes[iter.first];
+        if (!klass)
+            continue;
 
         std::set<int> indices; // avoid duplicate case values (diamond-shape inheritance)
         out << "    case " << iter.second << ":   //" << iter.first << "\n";
@@ -97,6 +101,8 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     int currentIdx = 1;
     for (auto const &iter : classIndex) {
         auto const &klass = classes[iter.first];
+        if (!klass)
+            continue;
 
         if (externalClasses.count(klass))
             continue;
@@ -184,6 +190,8 @@ std::set<const clang::CXXRecordDecl *> SmokeGenerator::superClassList(const clan
 std::set<const clang::CXXRecordDecl *> SmokeGenerator::descendantsList(const clang::CXXRecordDecl *klass) const {
     std::set<const clang::CXXRecordDecl *> ret;
     for (auto const &iter : classes) {
+        if (!iter.second)
+            continue;
         std::set<const clang::CXXRecordDecl *> superClasses = superClassList(iter.second);
         if (superClasses.count(klass)) {
             ret.insert(iter.second);
