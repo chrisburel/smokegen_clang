@@ -144,6 +144,17 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     out << "// These are the xenum functions for manipulating enum pointers\n";
     out << "\n";
 
+    // xcall functions
+    out << "// Those are the xcall functions defined in each x_*.cpp file, for dispatching method calls\n";
+    for (auto const &iter : classIndex) {
+        auto const &klass = classes[iter.first];
+        if (klass && (externalClasses.count(klass) || isTemplate(klass)))
+            continue;
+
+        std::string smokeClassName = iter.first;
+        std::replace(smokeClassName.begin(), smokeClassName.end(), ':', '_');
+        out << "void xcall_" << smokeClassName << "(Smoke::Index, void*, Smoke::Stack);\n";
+    }
 
     out << "}\n\n"; // end namespace definition
 
