@@ -238,3 +238,27 @@ bool SmokeGenerator::canClassBeInstantiated(const clang::CXXRecordDecl *klass) c
     // instanstiated either.
     return ((publicCtorFound || !ctorFound) && !privatePureVirtualsFound);
 }
+
+bool SmokeGenerator::canClassBeCopied(const clang::CXXRecordDecl *klass) const {
+    if (not klass) return false;
+
+    bool privateCopyCtorFound = false;
+    for (auto const & ctor : klass->ctors()) {
+        if (ctor->getAccess() == clang::AS_private && ctor->isCopyConstructor()) {
+            privateCopyCtorFound = true;
+            break;
+        }
+    }
+
+    bool parentCanBeCopied = true;
+    for (auto const & base : klass->bases()) {
+        if (!canClassBeCopied(base.getType()->getAsCXXRecordDecl())) {
+            parentCanBeCopied = false;
+            break;
+        }
+    }
+
+    // if the parent can be copied and we didn't find a private copy c'tor, the
+    // class is copiable
+    return (parentCanBeCopied && !privateCopyCtorFound);
+}
