@@ -5,6 +5,7 @@
 #include <string>
 
 #include <clang/AST/DeclCXX.h>
+#include <llvm/Support/raw_ostream.h>
 
 #include "options.h"
 
@@ -18,6 +19,10 @@ public:
     // items are checked to see if they exist in the smokeconfig file, as
     // specified in options.classList.
     void addClass(clang::CXXRecordDecl *D);
+
+    void processDataStructures();
+
+    void writeDataFile(llvm::raw_ostream &out);
 
 private:
     Options *options;

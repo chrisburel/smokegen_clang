@@ -16,4 +16,6 @@ bool SmokegenASTConsumer::HandleTopLevelDecl(clang::DeclGroupRef DR) {
 }
 
 void SmokegenASTConsumer::HandleTranslationUnit(clang::ASTContext& Ctx) {
+    generator.processDataStructures();
+    generator.writeDataFile(llvm::outs());
 }
