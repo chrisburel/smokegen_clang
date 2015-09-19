@@ -86,6 +86,54 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     out << "  }\n";
     out << "}\n\n";
 
+    // write out the inheritance list
+    std::map<std::vector<int>, int> inheritanceList;
+    std::map<const clang::CXXRecordDecl*, int> inheritanceIndex;
+    out << "// Group of Indexes (0 separated) used as super class lists.\n";
+    out << "// Classes with super classes have an index into this array.\n";
+    out << "static Smoke::Index inheritanceList[] = {\n";
+    out << "    0,\t// 0: (no super class)\n";
+
+    int currentIdx = 1;
+    for (auto const &iter : classIndex) {
+        auto const &klass = classes[iter.first];
+
+        if (externalClasses.count(klass))
+            continue;
+        std::vector<int> indices;
+        std::string comment;
+        for (auto const & base : klass->bases()) {
+            if (base.getType()->getAsCXXRecordDecl()->getAccess() == clang::AS_private)
+                continue;
+            auto className = base.getType()->getAsCXXRecordDecl()->getQualifiedNameAsString();
+            indices.push_back(classIndex[className]);
+            comment += className + ", ";
+        }
+        if (indices.size() == 0)
+            continue;
+        int idx = 0;
+
+        if (!inheritanceList.count(indices)) {
+            idx = currentIdx;
+            inheritanceList[indices] = idx;
+            out << "    ";
+            for (int i = 0; i < indices.size(); i++) {
+                if (i > 0) out << ", ";
+                out << indices[i];
+                currentIdx++;
+            }
+            currentIdx++;
+            comment = comment.substr(0, comment.size() - 2); // Remove trailing ", "
+            out << ", 0,\t// " << idx << ": " << comment << "\n";
+        } else {
+            idx = inheritanceList[indices];
+        }
+
+        // store the index into inheritanceList for the class
+        inheritanceIndex[klass] = idx;
+    }
+    out << "};\n\n"; // end of inheritance list
+
     out << "}\n\n"; // end namespace definition
 
     out << "extern \"C\" {\n\n";
