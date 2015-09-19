@@ -1,10 +1,25 @@
 #include "generator.h"
+#include "util.h"
 
 void SmokeGenerator::addClass(clang::CXXRecordDecl *D) {
     classes[D->getQualifiedNameAsString()] = D;
 }
 
 void SmokeGenerator::processDataStructures() {
+    for (auto const &klass : classes) {
+        if (contains(options->classList, klass.first) && klass.second->hasDefinition()) {
+            classIndex[klass.first] = 1;
+        }
+    }
+
+    for (auto const &klass : classIndex) {
+        includedClasses.push_back(klass.first);
+    }
+
+    int i = 1;
+    for (auto &idx : classIndex) {
+        idx.second = i++;
+    }
 }
 
 void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
