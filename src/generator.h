@@ -2,6 +2,7 @@
 #define SMOKEGEN_GENERATOR
 
 #include <map>
+#include <set>
 #include <string>
 
 #include <clang/AST/DeclCXX.h>
@@ -25,6 +26,9 @@ public:
     void writeDataFile(llvm::raw_ostream &out);
 
 private:
+    std::set<const clang::CXXRecordDecl *> superClassList(const clang::CXXRecordDecl *klass) const;
+    std::set<const clang::CXXRecordDecl *> descendantsList(const clang::CXXRecordDecl *klass) const;
+
     Options *options;
 
     // All classes found while reading the header files.
