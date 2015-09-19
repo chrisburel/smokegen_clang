@@ -40,6 +40,9 @@ private:
     // sorting for free because std::map.
     std::map<std::string, int> classIndex;
 
+    // Set of all types found.
+    std::set<clang::Type*> usedTypes;
+
     // A list of classes that do not appear in the classList, but are seen when
     // reading the header files
     std::set<const clang::CXXRecordDecl *> externalClasses;
