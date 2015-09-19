@@ -29,6 +29,7 @@ private:
     std::set<const clang::CXXRecordDecl *> superClassList(const clang::CXXRecordDecl *klass) const;
     std::set<const clang::CXXRecordDecl *> descendantsList(const clang::CXXRecordDecl *klass) const;
 
+    bool canClassBeInstantiated(const clang::CXXRecordDecl *klass) const;
     Options *options;
 
     // All classes found while reading the header files.
