@@ -6,6 +6,7 @@
 #include <string>
 
 #include <clang/AST/DeclCXX.h>
+#include <clang/AST/TypeOrdering.h>
 #include <llvm/Support/raw_ostream.h>
 
 #include "options.h"
@@ -45,7 +46,7 @@ private:
     std::map<std::string, int> classIndex;
 
     // Set of all types found.
-    std::set<clang::Type*> usedTypes;
+    std::set<clang::QualType, clang::QualTypeOrdering> usedTypes;
 
     // A list of classes that do not appear in the classList, but are seen when
     // reading the header files
