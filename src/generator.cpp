@@ -237,6 +237,39 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     }
     out << "};\n\n";
 
+    // types list
+    out << "// List of all types needed by the methods (arguments and return values)\n"
+        << "// Name, class ID if arg is a class, and TypeId\n";
+    out << "static Smoke::Type types[] = {\n";
+    out << "    { 0, 0, 0 },\t//0 (no type)\n";
+    std::map<std::string, clang::QualType> sortedTypes;
+    for (auto const &type : usedTypes) {
+
+        // We don't want the "class" keyword in front of all the class types
+        clang::LangOptions options;
+        clang::PrintingPolicy pp(options);
+        pp.SuppressTagKeyword = true;
+        pp.Bool = true;
+
+        std::string typeString = type.getAsString(pp);
+        if (!typeString.empty()) {
+            sortedTypes[typeString] = type;
+        }
+    }
+
+    int i = 1;
+    for (auto const &it : sortedTypes) {
+        clang::QualType t = it.second;
+        // don't include void as a type
+        if (t.getAsString() == "void")
+            continue;
+        int classIdx = 0;
+        std::string flags = getTypeFlags(t, &classIdx);
+        typeIndex[t] = i;
+        out << "    { \"" << it.first << "\", " << classIdx << ", " << flags << " },\t//" << i++ << "\n";
+    }
+    out << "};\n\n";
+
     out << "}\n\n"; // end namespace definition
 
     out << "extern \"C\" {\n\n";
