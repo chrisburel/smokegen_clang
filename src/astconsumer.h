@@ -9,6 +9,10 @@
 
 class SmokegenPPCallbacks;
 
+namespace clang {
+    class ASTContext;
+};
+
 class SmokegenASTConsumer : public clang::ASTConsumer {
 public:
     SmokegenASTConsumer(clang::CompilerInstance &ci, Options *options) :

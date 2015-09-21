@@ -2,6 +2,7 @@
 #include "ppcallbacks.h"
 
 void SmokegenASTConsumer::Initialize(clang::ASTContext &ctx) {
+    generator.setASTContext(&ctx);
     ppCallbacks = new SmokegenPPCallbacks(ci.getPreprocessor());
     ci.getPreprocessor().addPPCallbacks(std::unique_ptr<SmokegenPPCallbacks>(ppCallbacks));
 }

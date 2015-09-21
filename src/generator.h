@@ -6,6 +6,7 @@
 #include <string>
 
 #include <clang/AST/DeclCXX.h>
+#include <clang/AST/ASTContext.h>
 #include <clang/AST/TypeOrdering.h>
 #include <llvm/Support/raw_ostream.h>
 
@@ -14,6 +15,8 @@
 class SmokeGenerator {
 public:
     SmokeGenerator(Options *options) : options(options) {};
+
+    void setASTContext(clang::ASTContext *ctx) { this->ctx = ctx; }
 
     // Registers a record decl as a class known to the generator.  All
     // declarations are passed in, even forward declarations.  This allows the
@@ -55,6 +58,9 @@ private:
     // A list of classes that appear in the classList from the options, and
     // have actually been found when reading the header files.
     std::vector<std::string> includedClasses;
+
+    // Necessary for the getPointerType method
+    clang::ASTContext *ctx;
 };
 
 #endif
