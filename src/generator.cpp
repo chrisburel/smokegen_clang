@@ -18,6 +18,42 @@ void SmokeGenerator::processDataStructures() {
         includedClasses.push_back(klass.first);
     }
 
+    // Get used types in class methods
+    for (auto const &klassName : includedClasses) {
+        clang::CXXRecordDecl *klass = classes[klassName];
+        if (!klass) {
+            continue;
+        }
+
+        auto ptrToThisClassType = ctx->getPointerType(clang::QualType(klass->getTypeForDecl(), 0));
+        // Add types from methods
+        for (auto const &method : klass->methods()) {
+            if (method->getAccess() == clang::AS_private) {
+                continue;
+            }
+            if (hasTypeNonPublicParts(method->getReturnType())) {
+                continue;
+            }
+
+            if (method->getKind() == clang::Decl::CXXConstructor) {
+                // clang reports constructors as returning void.  According to
+                // smoke, they return a pointer to the class.
+                usedTypes.insert(ptrToThisClassType);
+            }
+            else {
+                usedTypes.insert(method->getReturnType());
+            }
+
+            // Add the types from the parameters of this method
+            for (auto const &param : method->params()) {
+                usedTypes.insert(param->getType());
+            }
+        }
+        if (klass->needsImplicitDefaultConstructor() || klass->needsImplicitCopyConstructor()) {
+            usedTypes.insert(ptrToThisClassType);
+        }
+    }
+
     int i = 1;
     for (auto &idx : classIndex) {
         idx.second = i++;
