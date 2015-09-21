@@ -366,6 +366,12 @@ bool SmokeGenerator::hasClassVirtualDestructor(const clang::CXXRecordDecl *klass
     return (virtualDtorFound || superClassHasVirtualDtor);
 }
 
+bool SmokeGenerator::hasTypeNonPublicParts(const clang::QualType &type) const {
+    if (type->getAsCXXRecordDecl() && type->getAsCXXRecordDecl()->getAccess() != clang::AS_public)
+        return true;
+    return false;
+}
+
 std::string SmokeGenerator::getTypeFlags(const clang::QualType &t, int *classIdx) const {
     auto tname = t.getAsString();
     if (!t.isCanonical()) {
