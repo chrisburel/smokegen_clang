@@ -288,7 +288,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     out << "        " << smokeNamespaceName << "::methods, " << /*methodCount <<*/ ",\n";
     out << "        " << smokeNamespaceName << "::methodMaps, " << /*methodMapCount <<*/ ",\n";
     out << "        " << smokeNamespaceName << "::methodNames, " << /*methodNames.count() <<*/ ",\n";
-    out << "        " << smokeNamespaceName << "::types, " << /*typeIndex.count() <<*/ ",\n";
+    out << "        " << smokeNamespaceName << "::types, " << typeIndex.size() << ",\n";
     out << "        " << smokeNamespaceName << "::inheritanceList,\n";
     out << "        " << smokeNamespaceName << "::argumentList,\n";
     out << "        " << smokeNamespaceName << "::ambiguousMethodList,\n";
