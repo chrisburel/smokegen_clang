@@ -52,6 +52,9 @@ private:
     // sorting for free because std::map.
     std::map<std::string, int> classIndex;
 
+    // The index of a specific type in the types array
+    std::map<clang::QualType, int, clang::QualTypeOrdering> typeIndex;
+
     // Set of all types found.
     std::set<clang::QualType, clang::QualTypeOrdering> usedTypes;
 
