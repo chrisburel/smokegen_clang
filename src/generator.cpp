@@ -365,3 +365,92 @@ bool SmokeGenerator::hasClassVirtualDestructor(const clang::CXXRecordDecl *klass
     // automatically, too
     return (virtualDtorFound || superClassHasVirtualDtor);
 }
+
+std::string SmokeGenerator::getTypeFlags(const clang::QualType &t, int *classIdx) const {
+    auto tname = t.getAsString();
+    if (!t.isCanonical()) {
+        return getTypeFlags(t.getCanonicalType(), classIdx);
+    }
+
+    clang::QualType noPointerType = t;
+    while(noPointerType->isPointerType()) {
+        noPointerType = noPointerType->getPointeeType();
+    }
+    if (auto refType = noPointerType->getAs<clang::ReferenceType>()) {
+        noPointerType = refType->getPointeeType();
+    }
+    auto D = noPointerType->getAsCXXRecordDecl();
+
+    std::string flags;
+    if (contains(options->voidpTypes, t.getAsString())) {
+        // support some of the weird quirks the kalyptus code has
+        flags += "Smoke::t_voidp|";
+    } else if (D) {
+        if (D->getDescribedClassTemplate()) {
+            if (options->qtMode && D->getQualifiedNameAsString() == "QFlags" && !t->isReferenceType() && t->isPointerType()) {
+                flags += "Smoke::t_uint|";
+            } else {
+                flags += "Smoke::t_voidp|";
+            }
+        } else {
+            flags += "Smoke::t_class|";
+            *classIdx = classIndex.at(D->getQualifiedNameAsString());
+        }
+    } else if (t->isBuiltinType() && t.getAsString() != "void" && !t->isPointerType() && !t->isReferenceType()) {
+        flags += "Smoke::t_";
+        clang::LangOptions options;
+        clang::PrintingPolicy pp(options);
+        pp.SuppressTagKeyword = true;
+        pp.Bool = true;
+        std::string typeName = t.getUnqualifiedType().getAsString(pp);
+
+        // replace the unsigned stuff, look the type up in Util::typeMap and if
+        // necessary, add a 'u' for unsigned types at the beginning again
+        bool _unsigned = false;
+        if (typeName.substr(0, 9) == "unsigned ") {
+            typeName = typeName.substr(9, typeName.size());
+            _unsigned = true;
+        }
+        else if (typeName.substr(0, 7) == "signed ") {
+            typeName = typeName.substr(7, typeName.size());
+        }
+        //typeName = Util::typeMap.value(typeName, typeName);
+        if (_unsigned)
+            typeName = "u" + typeName;
+
+        flags += typeName + '|';
+    } else if (t->isEnumeralType()) {
+        flags += "Smoke::t_enum|";
+        auto tag = noPointerType->getAsTagDecl();
+        if (!tag) {
+            *classIdx = classIndex.at("QGlobalSpace");
+        }
+        auto parent = tag->getParent();
+        auto parentTagDecl = clang::cast<clang::TagDecl>(parent);
+        if (parentTagDecl) {
+            *classIdx = classIndex.at(parentTagDecl->getQualifiedNameAsString());
+        }
+        else {
+            auto parentNamespaceDecl = clang::cast<clang::NamespaceDecl>(parent);
+            if (parentNamespaceDecl) {
+                *classIdx = classIndex.at(parentNamespaceDecl->getQualifiedNameAsString());
+            }
+        }
+    } else {
+        flags += "Smoke::t_voidp|";
+    }
+
+    if (t->isReferenceType())
+        flags += "Smoke::tf_ref|";
+    if (t->isPointerType())
+        flags += "Smoke::tf_ptr|";
+    if (!t->isReferenceType() && !t->isPointerType())
+        flags += "Smoke::tf_stack|";
+    if (noPointerType.isConstQualified())
+        flags += "Smoke::tf_const|";
+    if (flags[flags.size()-1] == '|') {
+        flags.pop_back();
+    }
+
+    return flags;
+}

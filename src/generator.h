@@ -37,6 +37,8 @@ private:
     bool canClassBeCopied(const clang::CXXRecordDecl *klass) const;
     bool hasClassVirtualDestructor(const clang::CXXRecordDecl *klass) const;
 
+    std::string getTypeFlags(const clang::QualType &t, int *classIdx) const;
+
     Options *options;
 
     // All classes found while reading the header files.
