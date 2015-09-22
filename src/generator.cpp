@@ -30,7 +30,7 @@ void SmokeGenerator::processDataStructures() {
         }
 
         auto ptrToThisClassType = ctx->getPointerType(clang::QualType(klass->getTypeForDecl(), 0));
-        auto constRefToThisClassType = ctx->getLValueReferenceType(clang::QualType(klass->getTypeForDecl(), clang::Qualifiers::Const));
+
         // Add types from methods
         for (auto const &method : klass->methods()) {
             if (method->getAccess() == clang::AS_private) {
@@ -53,13 +53,6 @@ void SmokeGenerator::processDataStructures() {
             for (auto const &param : method->params()) {
                 usedTypes.insert(param->getType());
             }
-        }
-        if (klass->needsImplicitDefaultConstructor()) {
-            usedTypes.insert(ptrToThisClassType);
-        }
-        if (klass->needsImplicitCopyConstructor()) {
-            usedTypes.insert(ptrToThisClassType);
-            usedTypes.insert(constRefToThisClassType);
         }
     }
 
