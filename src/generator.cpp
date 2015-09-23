@@ -450,6 +450,174 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     }
     out << "};\n\n";
 
+    out << "// (classId, name (index in methodNames), argumentList index, number of args, method flags, "
+        << "return type (index in types), xcall() index)\n";
+    out << "static Smoke::Method methods[] = {\n";
+    out << "    { 0, 0, 0, 0, 0, 0, 0 },\t// (no method)\n";
+
+    i = 1;
+    int methodCount = 1;
+    for (auto const & iter : classIndex) {
+        clang::CXXRecordDecl* klass = classes[iter.first];
+        if (!klass)
+            continue;
+
+        const clang::CXXDestructorDecl *destructor = klass->getDestructor();
+        bool isExternal = false;
+        if (externalClasses.count(klass))
+            isExternal = true;
+        if (isExternal /*&& !declaredVirtualMethods.contains(klass)*/)
+            continue;
+
+        const std::vector<const clang::CXXMethodDecl*> virtualMethods = virtualMethodsForClass(klass);
+
+        int xcall_index = 1;
+        for (auto const &meth : klass->methods()) {
+            if (isExternal /*&& !declaredVirtualMethods[klass].contains(&meth)*/)
+                continue;
+            if (meth->getAccess() == clang::AS_private)
+                continue;
+            if (meth == destructor) {
+                continue;
+            }
+            out << "    {" << iter.second << ", " << methodNames[meth->getNameAsString()] << ", ";
+            int numArgs = meth->getNumParams();
+            if (numArgs) {
+                out << parameterIndices[meth] << ", " << numArgs << ", ";
+            } else {
+                out << "0, 0, ";
+            }
+
+            clang::CXXConstructorDecl * asCtor = 0;
+            if (meth->getDeclKind() == clang::Decl::CXXConstructor)
+                asCtor = clang::cast<clang::CXXConstructorDecl>(meth);
+
+            std::string flags;
+            if (meth->isConst())
+                flags += "Smoke::mf_const|";
+            if (meth->isStatic())
+                flags += "Smoke::mf_static|";
+            if (asCtor) {
+                flags += "Smoke::mf_ctor|";
+                if (asCtor->isExplicit())
+                    flags += "Smoke::mf_explicit|";
+            }
+            if (meth->getAccess() == clang::AS_protected)
+                flags += "Smoke::mf_protected|";
+            if (asCtor && asCtor->isCopyConstructor())
+                flags += "Smoke::mf_copyctor|";
+            if (fieldAccessors.count(meth))
+                flags += "Smoke::mf_attribute|";
+        //    if (meth->isQPropertyAccessor())
+        //        flags += "Smoke::mf_property|";
+
+            // Simply checking for flags() & Method::Virtual won't be enough, because methods can override virtuals without being
+            // declared 'virtual' themselves (and they're still virtual, then).
+            if (contains(virtualMethods, const_cast<const clang::CXXMethodDecl *>(meth)))
+                flags += "Smoke::mf_virtual|";
+            if (meth->isVirtual() && meth->isPure())
+                flags += "Smoke::mf_purevirtual|";
+
+            for (auto attr_it = meth->specific_attr_begin<clang::AnnotateAttr>();
+              attr_it != meth->specific_attr_end<clang::AnnotateAttr>();
+              ++attr_it) {
+                const clang::AnnotateAttr *A = *attr_it;
+                if (A->getAnnotation() == "qt_signal")
+                    flags += "Smoke::mf_signal|";
+                else if (A->getAnnotation() == "qt_slot")
+                    flags += "Smoke::mf_slot|";
+            }
+
+            if (flags.size())
+                flags.pop_back();
+            else
+                flags = '0';
+
+            out << flags;
+
+            clang::QualType retType = meth->getReturnType();
+            if (asCtor)
+                retType = ctx->getPointerType(clang::QualType(klass->getTypeForDecl(), 0));
+
+            if (retType->isVoidType()) {
+                out << ", 0";
+            } else if (!typeIndex.count(retType)) {
+                llvm::outs() << "missing type: " << retType.getAsString() << " in method " << meth->getQualifiedNameAsString() << " (while writing out methods table)\n";
+            } else {
+                out << ", " << typeIndex[retType];
+            }
+            out << ", " << (isExternal ? 0 : xcall_index) << "},";
+
+            // comment
+            out << "\t//" << i << " " << meth->getQualifiedNameAsString() << '(';
+            for (int j = 0; j < meth->getNumParams(); j++) {
+                if (j > 0) out << ", ";
+                out << meth->getParamDecl(j)->getType().getAsString();
+            }
+            out << ')';
+            if (meth->isConst())
+                out << " const";
+            if (meth->isPure() && meth->isVirtual())
+                out << " [pure virtual]";
+            out << "\n";
+            methodIdx[meth] = i;
+            xcall_index++;
+            i++;
+            methodCount++;
+        }
+        //// enums
+        //foreach (BasicTypeDeclaration* decl, klass->children()) {
+        //    const Enum* e = 0;
+        //    if ((e = dynamic_cast<Enum*>(decl))) {
+        //        if (e->access() == Access_private)
+        //            continue;
+
+        //        Type *enumType;
+        //        if (e->name().isEmpty()) {
+        //            // unnamed enum
+        //            enumType = &types["long"];
+        //        } else {
+        //            enumType = &types[e->toString()];
+        //        }
+
+        //        int index = 0;
+        //        QHash<Type*, int>::const_iterator typeIt;
+        //        if ((typeIt = typeIndex.constFind(enumType)) == typeIndex.constEnd()) {
+        //            // this enum doesn't have an index, so we don't want it here
+        //            continue;
+        //        } else {
+        //            index = *typeIt;
+        //        }
+
+        //        foreach (const EnumMember& member, e->members()) {
+        //            out << "    {" << iter.value() << ", " << methodNames[member.name()]
+        //                << ", 0, 0, Smoke::mf_static|Smoke::mf_enum, " << index
+        //                << ", " << xcall_index << "},";
+        //
+        //            // comment
+        //            out << "\t//" << i << " " << klass->toString() << "::" << member.name() << " (enum)";
+        //            out << "\n";
+        //            methodIdx[&member] = i;
+        //            xcall_index++;
+        //            i++;
+        //            methodCount++;
+        //        }
+        //    }
+        //}
+        if (destructor) {
+            out << "    {" << iter.second << ", " << methodNames[destructor->getNameAsString()] << ", 0, 0, Smoke::mf_dtor";
+            if (destructor->getAccess() == clang::AS_private)
+                out << "|Smoke::mf_protected";
+            out << ", 0, " << xcall_index << " },\t//" << i << " " << destructor->getQualifiedNameAsString() << "()\n";
+            methodIdx[destructor] = i;
+            xcall_index++;
+            i++;
+            methodCount++;
+        }
+    }
+
+    out << "};\n\n";
+
     out << "}\n\n"; // end namespace definition
 
     out << "extern \"C\" {\n\n";
