@@ -10,6 +10,8 @@ public:
 
     bool VisitCXXRecordDecl(clang::CXXRecordDecl *D);
 
+    bool VisitEnumDecl(clang::EnumDecl *D);
+
 private:
     SmokeGenerator &generator;
 };

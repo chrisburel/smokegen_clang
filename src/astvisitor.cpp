@@ -9,3 +9,13 @@ bool SmokegenASTVisitor::VisitCXXRecordDecl(clang::CXXRecordDecl *D) {
 
     return true;
 }
+
+bool SmokegenASTVisitor::VisitEnumDecl(clang::EnumDecl *D) {
+    // We can't make bindings for things that don't have names.
+    if (!D->getDeclName())
+        return false;
+
+    generator.addEnum(D);
+
+    return true;
+}
