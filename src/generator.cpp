@@ -45,7 +45,9 @@ void SmokeGenerator::processDataStructures() {
             clang::DeclarationNameInfo NameInfo(Name, FieldLoc);
 
             // Set return type
-            clang::QualType functionType = ctx->getFunctionType(field->getType(), clang::ArrayRef<clang::QualType>(), clang::FunctionProtoType::ExtProtoInfo());
+            auto protoInfo = clang::FunctionProtoType::ExtProtoInfo();
+            protoInfo.TypeQuals |= clang::Qualifiers::Const; // set method->setIsConst(true)
+            clang::QualType functionType = ctx->getFunctionType(field->getType(), clang::ArrayRef<clang::QualType>(), protoInfo);
 
             clang::CXXMethodDecl *method = clang::CXXMethodDecl::Create(*ctx, klass, FieldLoc,
                     NameInfo, functionType,
