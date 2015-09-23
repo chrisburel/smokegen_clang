@@ -635,7 +635,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     out << "        " << smokeNamespaceName << "::classes, " << includedClasses.size() <<  ",\n";
     out << "        " << smokeNamespaceName << "::methods, " << methodCount << ",\n";
     out << "        " << smokeNamespaceName << "::methodMaps, " << /*methodMapCount <<*/ ",\n";
-    out << "        " << smokeNamespaceName << "::methodNames, " << /*methodNames.count() <<*/ ",\n";
+    out << "        " << smokeNamespaceName << "::methodNames, " << methodNames.size() << ",\n";
     out << "        " << smokeNamespaceName << "::types, " << typeIndex.size() << ",\n";
     out << "        " << smokeNamespaceName << "::inheritanceList,\n";
     out << "        " << smokeNamespaceName << "::argumentList,\n";
