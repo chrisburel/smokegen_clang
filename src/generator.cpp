@@ -253,7 +253,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
             std::replace(smokeClassName.begin(), smokeClassName.end(), ':', '_');
             out << "    { \"" << iter.first << "\", false" << ", "
                 << inheritanceIndex[klass] << ", xcall_" << smokeClassName << ", "
-                << "0" << ", ";
+                << (enumClassesHandled.count(iter.first) ? "xenum_" + smokeClassName : "0") << ", ";
             std::string flags;
             if (klass) { // !klass->isNamespace()
                 if (canClassBeInstantiated(klass)) flags += "Smoke::cf_constructor|";
