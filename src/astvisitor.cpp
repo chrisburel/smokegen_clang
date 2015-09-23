@@ -1,5 +1,6 @@
 #include <clang/Frontend/CompilerInstance.h>
 #include <clang/Sema/Sema.h>
+#include <clang/Sema/SemaDiagnostic.h>
 
 #include "astvisitor.h"
 
@@ -32,6 +33,9 @@ void SmokegenASTVisitor::InstantiateImplicitMethods(clang::CXXRecordDecl* decl) 
         return;
 
     clang::Sema& sema = ci.getSema();
+
+    ci.getDiagnostics().setSeverity(clang::diag::err_uninitialized_member_in_ctor, clang::diag::Severity::Ignored, decl->getLocation());
+
     clang::DeclContext::lookup_result ctors = sema.LookupConstructors(decl);
     for (auto const & it : ctors) {
         // Ignore templated constructors.
