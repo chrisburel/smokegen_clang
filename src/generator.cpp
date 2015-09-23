@@ -1,5 +1,7 @@
 #include "generator.h"
 #include "util.h"
+#include <clang/Sema/DeclSpec.h>
+#include <clang/Sema/AttributeList.h>
 
 void SmokeGenerator::addClass(clang::CXXRecordDecl *D) {
     classes[D->getQualifiedNameAsString()] = D;
@@ -30,6 +32,46 @@ void SmokeGenerator::processDataStructures() {
         }
 
         auto ptrToThisClassType = ctx->getPointerType(clang::QualType(klass->getTypeForDecl(), 0));
+
+        for (auto const &field : klass->fields()) {
+            // Set name
+            clang::DeclarationName Name = ctx->DeclarationNames.getIdentifier(&ctx->Idents.get(field->getName()));
+            clang::SourceLocation FieldLoc = field->getLocation();
+            clang::DeclarationNameInfo NameInfo(Name, FieldLoc);
+
+            // Set return type
+            clang::QualType functionType = ctx->getFunctionType(field->getType(), clang::ArrayRef<clang::QualType>(), clang::FunctionProtoType::ExtProtoInfo());
+
+            clang::CXXMethodDecl *method = clang::CXXMethodDecl::Create(*ctx, klass, FieldLoc,
+                    NameInfo, functionType,
+                    /*TInfo=*/nullptr, /*StorageClass=*/clang::SC_None,
+                    /*isInline=*/true, /*isConst=*/true, FieldLoc);
+            klass->addDecl(method);
+
+            // const non-pointer types can't be set
+            if (field->getType().isConstQualified() && !field->getType()->isPointerType())
+                continue;
+
+            // setter
+            auto setterName = field->getNameAsString();
+            setterName[0] = std::toupper(setterName[0]);
+            setterName = "set" + setterName;
+            Name = ctx->DeclarationNames.getIdentifier(&ctx->Idents.get(setterName));
+            NameInfo = clang::DeclarationNameInfo(Name, FieldLoc);
+
+            functionType = ctx->getFunctionType(ctx->VoidTy, llvm::makeArrayRef(field->getType()), clang::FunctionProtoType::ExtProtoInfo());
+
+            method = clang::CXXMethodDecl::Create(*ctx, klass, FieldLoc,
+                    NameInfo, functionType,
+                    /*TInfo=*/nullptr, /*StorageClass=*/clang::SC_None,
+                    /*isInline=*/true, /*isConst=*/false, FieldLoc);
+
+            clang::ParmVarDecl *newValueArg = clang::ParmVarDecl::Create(*ctx, method, FieldLoc, FieldLoc,
+                    /*IdentifierInfo=*/nullptr, field->getType(), /*TInfo=*/nullptr, /*StorageClass=*/clang::SC_None, /*DefArg=*/nullptr);
+            method->setParams(llvm::makeArrayRef(newValueArg));
+
+            klass->addDecl(method);
+        }
 
         // Add types from methods
         for (auto const &method : klass->methods()) {
