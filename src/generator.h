@@ -59,6 +59,9 @@ private:
     // sorting for free because std::map.
     std::map<std::string, int> classIndex;
 
+    // The index of a specific method in the methods array
+    std::map<const clang::CXXMethodDecl *, int> methodIdx;
+
     // The index of a specific type in the types array
     std::map<clang::QualType, int, clang::QualTypeOrdering> typeIndex;
 
