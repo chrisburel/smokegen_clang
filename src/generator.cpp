@@ -715,3 +715,78 @@ char SmokeGenerator::munge(clang::QualType type) const {
         return '?';
     }
 }
+
+std::vector<const clang::CXXMethodDecl *> SmokeGenerator::virtualMethodsForClass(const clang::CXXRecordDecl *klass) const {
+    std::vector<const clang::CXXMethodDecl *> ret;
+    // virtual method callbacks for classes that can't be instantiated aren't useful
+    if (!canClassBeInstantiated(klass))
+        return ret;
+
+    for (auto const &meth : collectVirtualMethods(klass)) {
+        // TODO this is a synthesized overload, skip it.
+        // if (!meth->remainingDefaultValues().isEmpty())
+        //     continue;
+        if (meth->getParent() == klass) {
+            // this method can't be overriden, because it's defined in the class for which this method was called
+            ret.push_back(meth);
+            continue;
+        }
+
+        // Check if the method is overriden, so the callback will always point to the latest definition of the virtual method.
+        const clang::CXXMethodDecl *override = 0;
+        if ((override = isVirtualOverriden(meth, klass))) {
+            // If the method was overriden and put under private access, skip it. If we already have the method, skip it as well.
+            if (override->getAccess() == clang::AS_private || contains(ret, override))
+                continue;
+            ret.push_back(override);
+        } else if (!contains(ret, meth)) {
+            ret.push_back(meth);
+        }
+    }
+    return ret;
+}
+
+std::vector<const clang::CXXMethodDecl *> SmokeGenerator::collectVirtualMethods(const clang::CXXRecordDecl *klass) const {
+    std::vector<const clang::CXXMethodDecl *> methods;
+    clang::CXXDestructorDecl *destructor = klass->getDestructor();
+    for (auto const & meth : klass->methods()) {
+        if((meth->isVirtual() || meth->isPure()) && meth->getAccess() != clang::AS_private && meth != destructor) {
+            methods.push_back(meth);
+        }
+    }
+    for (auto const & baseClass : klass->bases()) {
+        auto baseMethods = collectVirtualMethods(baseClass.getType()->getAsCXXRecordDecl());
+        methods.insert(methods.end(), baseMethods.begin(), baseMethods.end());
+    }
+    return methods;
+}
+
+// checks if method meth is overriden in class klass or any of its superclasses
+const clang::CXXMethodDecl* SmokeGenerator::isVirtualOverriden(const clang::CXXMethodDecl *meth, const clang::CXXRecordDecl *klass) const {
+    // is the method virtual at all?
+    if (!(meth->isVirtual()) && !(meth->isPure()))
+        return 0;
+
+    // if the method is defined in klass, it can't be overriden there or in any parent class
+    if (meth->getParent() == klass)
+        return 0;
+
+    for (auto const m : klass->methods()) {
+        if (!(m->isStatic()) && m == meth)
+            // the method m overrides meth
+            return m;
+    }
+
+    for (auto const & base : klass->bases()) {
+        // we reached the class in which meth was defined and we still didn't find any overrides => return
+        if (base.getType()->getAsCXXRecordDecl() == meth->getParent())
+            return 0;
+
+        // recurse into the base classes
+        const clang::CXXMethodDecl* m = 0;
+        if ((m = isVirtualOverriden(meth, base.getType()->getAsCXXRecordDecl())))
+            return m;
+    }
+
+    return 0;
+}
