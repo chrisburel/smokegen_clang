@@ -652,6 +652,41 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     }
     out << "};\n\n";
 
+    int methodMapCount = 1;
+    out << "// Class ID, munged name ID (index into methodNames), method def (see methods) if >0 or number of overloads if <0\n";
+    out << "static Smoke::MethodMap methodMaps[] = {\n";
+    out << "    {0, 0, 0},\t//0 (no method)\n";
+
+    for (auto const & iter : classIndex) {
+        clang::CXXRecordDecl *klass = classes[iter.first];
+        if (!klass)
+            continue;
+
+        if (externalClasses.count(klass))
+            continue;
+
+        auto const & map = classMungedNames[klass];
+        for (auto const & munged_it : map) {
+
+            // class index, munged name index
+            out << "    {" << classIndex[iter.first] << ", " << methodNames[munged_it.first] << ", ";
+
+            // if there's only one matching method for this class and the munged name, insert the index into methodss
+            if (munged_it.second.size() == 1) {
+                out << methodIdx[munged_it.second[0]];
+            } else {
+                // negative index into ambigious methods list
+                out << '-' << ambigiousIds[klass][munged_it.first];
+            }
+            out << "},";
+            // comment
+            out << "\t// " << klass->getQualifiedNameAsString() << "::" << munged_it.first;
+            out << "\n";
+            methodMapCount++;
+        }
+    }
+
+    out << "};\n\n";
     out << "}\n\n"; // end namespace definition
 
     out << "extern \"C\" {\n\n";
@@ -668,7 +703,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     out << "        \"" << options->module << "\",\n";
     out << "        " << smokeNamespaceName << "::classes, " << includedClasses.size() <<  ",\n";
     out << "        " << smokeNamespaceName << "::methods, " << methodCount << ",\n";
-    out << "        " << smokeNamespaceName << "::methodMaps, " << /*methodMapCount <<*/ ",\n";
+    out << "        " << smokeNamespaceName << "::methodMaps, " << methodMapCount << ",\n";
     out << "        " << smokeNamespaceName << "::methodNames, " << methodNames.size() << ",\n";
     out << "        " << smokeNamespaceName << "::types, " << typeIndex.size() << ",\n";
     out << "        " << smokeNamespaceName << "::inheritanceList,\n";
