@@ -88,7 +88,8 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
         if (!klass)
             continue;
 
-        std::set<int> indices; // avoid duplicate case values (diamond-shape inheritance)
+        // avoid duplicate case values (diamond-shape inheritance).  Use std::map to sort output.
+        std::map<int, const clang::CXXRecordDecl *> indices;
         out << "    case " << iter.second << ":   //" << iter.first << "\n";
         out << "      switch(to) {\n";
         // Add our parent classes to the cast
@@ -100,13 +101,11 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
                 if (indices.count(index))
                     continue;
 
-                indices.insert(index);
-
-                out << "        case " << index << ": return (void*)(" << className << "*)(" << klass->getQualifiedNameAsString() << "*)xptr;\n";
+                indices[index] = base;
             }
         }
         // Add ourself to the cast
-        out << "        case " << iter.second << ": return (void*)(" << klass->getQualifiedNameAsString() << "*)xptr;\n";
+        indices[iter.second] = klass;
 
         // Add our subclasses to the cast
         for (auto const &desc : descendantsList(klass)) {
@@ -117,14 +116,22 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
                 if (indices.count(index))
                     continue;
 
-                indices.insert(index);
+                indices[index] = desc;
+            }
+        }
 
-                //if (Util::isVirtualInheritancePath(desc, &klass)) {
-                //    out << QString("        case %1: return (void*)dynamic_cast<%2*>((%3*)xptr);\n")
-                //        .arg(index).arg(className).arg(klass.toString());
-                //} else {
-                    out << "        case " << index << ": return (void*)(" << className << "*)(" << klass->getQualifiedNameAsString() << "*)xptr;\n";
-                //}
+        // Do the output
+        for (auto const &it : indices) {
+            if (it.second == klass) {
+                out << "        case " << iter.second << ": return (void*)(" << klass->getQualifiedNameAsString() << "*)xptr;\n";
+            }
+            else {
+            //if (Util::isVirtualInheritancePath(desc, &klass)) {
+            //    out << QString("        case %1: return (void*)dynamic_cast<%2*>((%3*)xptr);\n")
+            //        .arg(index).arg(className).arg(klass.toString());
+            //} else {
+                out << "        case " << it.first << ": return (void*)(" << it.second->getQualifiedNameAsString() << "*)(" << klass->getQualifiedNameAsString() << "*)xptr;\n";
+            // }
             }
         }
 
