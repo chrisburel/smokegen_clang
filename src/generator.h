@@ -25,6 +25,8 @@ public:
     // specified in options.classList.
     void addClass(clang::CXXRecordDecl *D);
 
+    void addEnum(clang::EnumDecl *D);
+
     void processDataStructures();
 
     void writeDataFile(llvm::raw_ostream &out);
@@ -45,6 +47,8 @@ private:
 
     // All classes found while reading the header files.
     std::map<std::string, clang::CXXRecordDecl *> classes;
+
+    std::map<std::string, clang::EnumDecl *> enums;
 
     // Stores the class index of each class, as it appears in the classes list
     // in the data file.  Classes are added to it, and as a final step we

@@ -5,6 +5,10 @@ void SmokeGenerator::addClass(clang::CXXRecordDecl *D) {
     classes[D->getQualifiedNameAsString()] = D;
 }
 
+void SmokeGenerator::addEnum(clang::EnumDecl *D) {
+    enums[D->getQualifiedNameAsString()] = D;
+}
+
 void SmokeGenerator::processDataStructures() {
     for (auto const &klass : classes) {
         if (contains(options->classList, klass.first) && klass.second->hasDefinition()) {
