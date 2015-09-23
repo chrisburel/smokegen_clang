@@ -75,6 +75,10 @@ private:
 
     // Necessary for the getPointerType method
     clang::ASTContext *ctx;
+
+    // Stores the relationship between a manually created method for a field
+    // accessor, and the field it accesses.
+    std::map<const clang::CXXMethodDecl *, const clang::FieldDecl *> fieldAccessors;
 };
 
 #endif

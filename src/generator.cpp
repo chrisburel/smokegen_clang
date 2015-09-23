@@ -47,6 +47,7 @@ void SmokeGenerator::processDataStructures() {
                     /*TInfo=*/nullptr, /*StorageClass=*/clang::SC_None,
                     /*isInline=*/true, /*isConst=*/true, FieldLoc);
             klass->addDecl(method);
+            fieldAccessors[method] = field;
 
             // const non-pointer types can't be set
             if (field->getType().isConstQualified() && !field->getType()->isPointerType())
@@ -71,6 +72,7 @@ void SmokeGenerator::processDataStructures() {
             method->setParams(llvm::makeArrayRef(newValueArg));
 
             klass->addDecl(method);
+            fieldAccessors[method] = field;
         }
 
         // Add types from methods
