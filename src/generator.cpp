@@ -828,13 +828,7 @@ std::string SmokeGenerator::getTypeFlags(const clang::QualType &t, int *classIdx
         return getTypeFlags(t.getCanonicalType(), classIdx);
     }
 
-    clang::QualType noPointerType = t;
-    while(noPointerType->isPointerType()) {
-        noPointerType = noPointerType->getPointeeType();
-    }
-    if (auto refType = noPointerType->getAs<clang::ReferenceType>()) {
-        noPointerType = refType->getPointeeType();
-    }
+    clang::QualType noPointerType = dereferenced(t);
     auto D = noPointerType->getAsCXXRecordDecl();
 
     std::string flags;
@@ -925,12 +919,7 @@ char SmokeGenerator::munge(clang::QualType type) const {
         return munge(type.getCanonicalType());
     }
 
-    while(type->isPointerType()) {
-        type = type->getPointeeType();
-    }
-    if (auto refType = type->getAs<clang::ReferenceType>()) {
-        type = refType->getPointeeType();
-    }
+    type = dereferenced(type);
 
     if ((type->isPointerType() && type->getPointeeType()->isPointerType()) ||
         // (type->getClass() && type->getClass()->isTemplate() && (!Options::qtMode || (Options::qtMode && type->getClass()->name() != "QFlags"))) ||
