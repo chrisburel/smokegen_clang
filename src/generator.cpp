@@ -4,7 +4,12 @@
 #include <clang/Sema/AttributeList.h>
 
 void SmokeGenerator::addClass(clang::CXXRecordDecl *D) {
-    classes[D->getQualifiedNameAsString()] = D;
+    auto const className = D->getQualifiedNameAsString();
+
+    // Classes can be forward declared even after their primary declaration is
+    // seen.  We always want the one with a definition, if it exists.
+    D = D->hasDefinition() ? D->getDefinition() : D;
+    classes[className] = D;
 }
 
 void SmokeGenerator::addEnum(clang::EnumDecl *D) {
