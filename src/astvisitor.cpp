@@ -45,11 +45,16 @@ void SmokegenASTVisitor::InstantiateImplicitMethods(clang::CXXRecordDecl* decl) 
         if (!ctor->hasBody() && !ctor->isDeleted() && ctor->isImplicit()) {
             if (sema.getSpecialMember(ctor) == clang::Sema::CXXDefaultConstructor) {
                 sema.DefineImplicitDefaultConstructor(decl->getLocation(), ctor);
-            } else {
-                sema.DefineImplicitCopyConstructor(decl->getLocation(), ctor);
             }
         }
         // Unreferenced template constructors stay uninstantiated on purpose.
+    }
+
+    if (clang::CXXConstructorDecl* copyCtor = sema.LookupCopyingConstructor(decl, 0)) {
+        if (clang::isa<clang::FunctionTemplateDecl>(copyCtor) &&
+            !copyCtor->hasBody() && !copyCtor->isDeleted() && copyCtor->isImplicit()) {
+            sema.DefineImplicitCopyConstructor(decl->getLocation(), copyCtor);
+        }
     }
 
     if (clang::CXXDestructorDecl* dtor = sema.LookupDestructor(decl)) {
