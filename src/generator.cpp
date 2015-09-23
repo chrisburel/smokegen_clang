@@ -669,6 +669,13 @@ char SmokeGenerator::munge(clang::QualType type) const {
         return munge(type.getCanonicalType());
     }
 
+    while(type->isPointerType()) {
+        type = type->getPointeeType();
+    }
+    if (auto refType = type->getAs<clang::ReferenceType>()) {
+        type = refType->getPointeeType();
+    }
+
     if ((type->isPointerType() && type->getPointeeType()->isPointerType()) ||
         // (type->getClass() && type->getClass()->isTemplate() && (!Options::qtMode || (Options::qtMode && type->getClass()->name() != "QFlags"))) ||
         (contains(options->voidpTypes, type.getAsString()) && !contains(options->scalarTypes, type.getAsString()))) {
@@ -680,7 +687,7 @@ char SmokeGenerator::munge(clang::QualType type) const {
         // plain scalar
         return '$';
     }
-    else if (type->isObjectType()) {
+    else if (type->isObjectType() || (type->isPointerType() && type->getPointeeType()->isObjectType())) {
         // object
         return '#';
     }
