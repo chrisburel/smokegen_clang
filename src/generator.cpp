@@ -312,6 +312,90 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     }
     out << "};\n\n";
 
+    out << "static Smoke::Index argumentList[] = {\n";
+    out << "    0,\t//0  (void)\n";
+
+    std::map<std::vector<int>, int> parameterList;
+    std::map<const clang::CXXMethodDecl*, int> parameterIndices;
+
+    // munged name => index
+    std::map<std::string, int> methodNames;
+    // class => list of munged names with possible methods or enum members
+    std::map<const clang::CXXRecordDecl*, std::map<std::string, std::vector<const clang::CXXMethodDecl*> > > classMungedNames;
+
+    currentIdx = 1;
+    for (auto const & iter : classIndex) {
+        auto klass = classes[iter.first];
+        if (!klass)
+            continue;
+        bool isExternal = externalClasses.count(klass);
+        //bool isDeclaredVirtual = declaredVirtualMethods.contains(klass);
+        bool isDeclaredVirtual = false;
+        if (isExternal && !isDeclaredVirtual)
+            continue;
+        std::map<std::string, std::vector<const clang::CXXMethodDecl*> >& map = classMungedNames[klass];
+        for (auto const & meth : klass->methods()) {
+            if (meth->getAccess() == clang::AS_private)
+                continue;
+            if (isExternal && !isDeclaredVirtual)
+                continue;
+
+            methodNames[meth->getNameAsString()] = 1;
+            if (!isExternal) {
+                auto munged = mungedName(meth);
+                methodNames[munged] = 1;
+                map[munged].push_back(meth);
+            }
+
+            if (!meth->getNumParams()) {
+                parameterIndices[meth] = 0;
+                continue;
+            }
+            std::vector<int> indices(meth->getNumParams());
+            std::string comment;
+            for (int i = 0; i < meth->getNumParams(); ++i) {
+                auto param = meth->getParamDecl(i);
+                auto t = param->getType();
+                if (!typeIndex.count(t)) {
+                    llvm::outs() << "missing type: " << t.getAsString() << " in method " << meth->getNameAsString() << " (while building munged names map)\n";
+                }
+                indices[i] = typeIndex[t];
+                comment += t.getAsString() + ", ";
+            }
+            int idx = 0;
+            auto const & it = parameterList.find(indices);
+            if (it == parameterList.end()) {
+                idx = currentIdx;
+                parameterList[indices] = idx;
+                out << "    ";
+                for (int i = 0; i < indices.size(); i++) {
+                    if (i > 0) out << ", ";
+                    out << indices[i];
+                }
+                if (comment.substr(comment.size()-2, comment.size()) == ", ")
+                    comment = comment.substr(0, comment.size()-2);
+                out << ", 0,\t//" << idx << "  " << comment << "\n";
+                currentIdx += indices.size() + 1;
+            }
+            else {
+                idx = it->second;
+            }
+            parameterIndices[meth] = idx;
+        }
+        //foreach (BasicTypeDeclaration* decl, klass->children()) {
+        //    const Enum* e = 0;
+        //    if ((e = dynamic_cast<Enum*>(decl))) {
+        //        if (e->access() == Access_private)
+        //            continue;
+        //        foreach (const EnumMember& member, e->members()) {
+        //            methodNames[member.name()] = 1;
+        //            map[member.name()].append(&member);
+        //        }
+        //    }
+        //}
+    }
+
+    out << "};\n\n";
     out << "}\n\n"; // end namespace definition
 
     out << "extern \"C\" {\n\n";
