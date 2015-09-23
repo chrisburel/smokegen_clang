@@ -429,8 +429,18 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
         //    }
         //}
     }
-
     out << "};\n\n";
+
+    out << "// Raw list of all methods, using munged names\n";
+    out << "static const char *methodNames[] = {\n";
+    out << "    \"\",\t//0\n";
+    i = 1;
+    for (auto &it : methodNames) {
+        it.second = i++;
+        out << "    \"" << it.first << "\",\t//" << it.second << "\n";
+    }
+    out << "};\n\n";
+
     out << "}\n\n"; // end namespace definition
 
     out << "extern \"C\" {\n\n";
