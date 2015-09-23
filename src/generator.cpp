@@ -618,6 +618,40 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
 
     out << "};\n\n";
 
+    out << "static Smoke::Index ambiguousMethodList[] = {\n";
+    out << "    0,\n";
+
+    std::map<const clang::CXXRecordDecl*, std::map<std::string, int> > ambigiousIds;
+    i = 1;
+    // ambigious method list
+    for (auto const & iter : classMungedNames) {
+        const clang::CXXRecordDecl* klass = iter.first;
+        const std::map<std::string, std::vector<const clang::CXXMethodDecl*> >& map = iter.second;
+
+        for (auto const & munged_it : map) {
+            if (munged_it.second.size() < 2)
+                continue;
+            for (const clang::CXXMethodDecl* meth : munged_it.second) {
+                out << "    " << methodIdx[meth] << ',';
+
+                // comment
+                out << "  // " << meth->getQualifiedNameAsString();
+                out << '(';
+                for (int j = 0; j < meth->getNumParams(); j++) {
+                    if (j > 0) out << ", ";
+                    out << meth->getParamDecl(j)->getType().getAsString();
+                }
+                out << ')';
+                if (meth->isConst()) out << " const";
+                out << "\n";
+            }
+            out << "    0,\n";
+            ambigiousIds[klass][munged_it.first] = i;
+            i += munged_it.second.size() + 1;
+        }
+    }
+    out << "};\n\n";
+
     out << "}\n\n"; // end namespace definition
 
     out << "extern \"C\" {\n\n";
