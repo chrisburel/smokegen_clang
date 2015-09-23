@@ -591,13 +591,13 @@ std::string SmokeGenerator::getTypeFlags(const clang::QualType &t, int *classIdx
             *classIdx = classIndex.at("QGlobalSpace");
         }
         auto parent = tag->getParent();
-        auto parentTagDecl = clang::cast<clang::TagDecl>(parent);
-        if (parentTagDecl) {
+        if (clang::isa<clang::TagDecl>(parent)) {
+            auto parentTagDecl = clang::cast<clang::TagDecl>(parent);
             *classIdx = classIndex.at(parentTagDecl->getQualifiedNameAsString());
         }
-        else {
+        else if (clang::isa<clang::NamespaceDecl>(parent)) {
             auto parentNamespaceDecl = clang::cast<clang::NamespaceDecl>(parent);
-            if (parentNamespaceDecl) {
+            if (classIndex.count(parentNamespaceDecl->getQualifiedNameAsString())) {
                 *classIdx = classIndex.at(parentNamespaceDecl->getQualifiedNameAsString());
             }
         }
