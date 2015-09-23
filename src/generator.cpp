@@ -619,3 +619,38 @@ std::string SmokeGenerator::getTypeFlags(const clang::QualType &t, int *classIdx
 
     return flags;
 }
+
+std::string SmokeGenerator::mungedName(clang::FunctionDecl *D) const {
+    std::string name = D->getNameAsString();
+    for (auto param : D->params()) {
+        auto type = param->getType();
+        name += munge(type);
+    }
+    return name;
+}
+
+char SmokeGenerator::munge(clang::QualType type) const {
+    if (!type.isCanonical()) {
+        return munge(type.getCanonicalType());
+    }
+
+    if ((type->isPointerType() && type->getPointeeType()->isPointerType()) ||
+        // (type->getClass() && type->getClass()->isTemplate() && (!Options::qtMode || (Options::qtMode && type->getClass()->name() != "QFlags"))) ||
+        (contains(options->voidpTypes, type.getAsString()) && !contains(options->scalarTypes, type.getAsString()))) {
+
+        // reference to array or hash or unknown
+        return '?';
+    }
+    if (type->isBuiltinType() || type->isEnumeralType() || contains(options->scalarTypes, type.getAsString())) {
+        // plain scalar
+        return '$';
+    }
+    else if (type->isObjectType()) {
+        // object
+        return '#';
+    }
+    else {
+        // unknown
+        return '?';
+    }
+}

@@ -43,6 +43,9 @@ private:
 
     std::string getTypeFlags(const clang::QualType &t, int *classIdx) const;
 
+    std::string mungedName(clang::FunctionDecl *D) const;
+    char munge(clang::QualType T) const;
+
     Options *options;
 
     // All classes found while reading the header files.
