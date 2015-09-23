@@ -194,6 +194,32 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
 
     // xenum functions
     out << "// These are the xenum functions for manipulating enum pointers\n";
+    std::set<std::string> enumClassesHandled;
+    for (auto const & it : enums) {
+        std::string smokeClassName;
+        auto parent = it.second->getParent();
+
+        if (clang::isa<clang::TranslationUnitDecl>(parent)) {
+            smokeClassName = "QGlobalSpace";
+        }
+        else {
+            smokeClassName = clang::cast<clang::NamedDecl>(parent)->getQualifiedNameAsString();
+        }
+
+        if (!smokeClassName.empty() && contains(includedClasses, smokeClassName) && it.second->getAccess() != clang::AS_private) {
+            if (enumClassesHandled.count(smokeClassName) || contains(options->voidpTypes, smokeClassName))
+                continue;
+            enumClassesHandled.insert(smokeClassName);
+            std::replace(smokeClassName.begin(), smokeClassName.end(), ':', '_');
+            out << "void xenum_" << smokeClassName << "(Smoke::EnumOperation, Smoke::Index, void*&, long&);\n";
+        } else if (smokeClassName.empty() && it.second->getAccess() != clang::AS_private) {
+            if (enumClassesHandled.count("QGlobalSpace")) {
+                continue;
+            }
+            out << "void xenum_QGlobalSpace(Smoke::EnumOperation, Smoke::Index, void*&, long&);\n";
+            enumClassesHandled.insert("QGlobalSpace");
+        }
+    }
     out << "\n";
 
     // xcall functions
