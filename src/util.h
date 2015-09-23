@@ -12,4 +12,16 @@ bool contains(const std::vector<T> &vec, const T &value)
 bool isTemplate(const clang::CXXRecordDecl *D) {
     return (D->getDescribedClassTemplate() || clang::isa<clang::ClassTemplateSpecializationDecl>(D));
 }
+
+clang::QualType dereferenced(const clang::QualType &type) {
+    clang::QualType dereferenced = type;
+    while(dereferenced->isPointerType()) {
+        dereferenced = dereferenced->getPointeeType();
+    }
+    if (auto refType = dereferenced->getAs<clang::ReferenceType>()) {
+        dereferenced = refType->getPointeeType();
+    }
+    return dereferenced;
+}
+
 #endif
