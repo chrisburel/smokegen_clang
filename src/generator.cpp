@@ -23,6 +23,9 @@ void SmokeGenerator::processDataStructures() {
         }
     }
 
+    // superclasses might be in different modules, still they need to be indexed for inheritanceList to work properly
+    std::set<const clang::CXXRecordDecl*> superClasses;
+
     classIndex["QGlobalSpace"] = 1;
 
     for (auto const &klass : classIndex) {
@@ -34,6 +37,10 @@ void SmokeGenerator::processDataStructures() {
         clang::CXXRecordDecl *klass = classes[klassName];
         if (!klass) {
             continue;
+        }
+
+        for (auto const & base : klass->bases()) {
+            superClasses.insert(base.getType()->getAsCXXRecordDecl());
         }
 
         auto ptrToThisClassType = ctx->getPointerType(clang::QualType(klass->getTypeForDecl(), 0));
@@ -105,6 +112,30 @@ void SmokeGenerator::processDataStructures() {
                 usedTypes.insert(param->getType());
             }
         }
+    }
+
+    // if a class is used somewhere but not listed in the class list, mark it external
+    for (auto const & iter : classes) {
+        if (!iter.second) continue;
+        if (isTemplate(iter.second) || contains(options->voidpTypes, iter.first))
+            continue;
+
+        if (   (isClassUsed(iter.second) && iter.second->getAccess() != clang::AS_private)
+            || superClasses.count(iter.second))
+            //|| declaredVirtualMethods.contains(&iter.value()))
+        {
+            classIndex[iter.first] = 1;
+
+            if (!contains(options->classList, iter.first) || iter.second->getDefinition() != iter.second /*isForwardDecl*/)
+                externalClasses.insert(iter.second);
+            else if (!contains(includedClasses, iter.first))
+                includedClasses.push_back(iter.first);
+        }
+        //else if (iter.second->isNameSpace() && (contains(options->classList, iter.first) || iter.first == "QGlobalSpace")) {
+        //    // wanted namespace or QGlobalSpace
+        //    classIndex[iter.first] = 1;
+        //    includedClasses.push_back(iter.first);
+        //}
     }
 
     int i = 1;
@@ -1015,4 +1046,12 @@ const clang::CXXMethodDecl* SmokeGenerator::isVirtualOverriden(const clang::CXXM
     }
 
     return 0;
+}
+
+bool SmokeGenerator::isClassUsed(const clang::CXXRecordDecl* klass) const {
+    for (auto const & type : usedTypes) {
+        if (dereferenced(type)->getAsCXXRecordDecl() == klass)
+            return true;
+    }
+    return false;
 }

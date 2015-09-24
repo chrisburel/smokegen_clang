@@ -50,6 +50,8 @@ private:
     std::vector<const clang::CXXMethodDecl *> collectVirtualMethods(const clang::CXXRecordDecl *klass) const;
     const clang::CXXMethodDecl* isVirtualOverriden(const clang::CXXMethodDecl *meth, const clang::CXXRecordDecl *klass) const;
 
+    bool isClassUsed(const clang::CXXRecordDecl* klass) const;
+
     Options *options;
 
     // All classes found while reading the header files.
