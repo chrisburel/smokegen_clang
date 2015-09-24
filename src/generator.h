@@ -67,6 +67,7 @@ private:
 
     // The index of a specific method in the methods array
     std::map<const clang::CXXMethodDecl *, int> methodIdx;
+    std::map<const clang::EnumConstantDecl *, int> enumIdx;
 
     // The index of a specific type in the types array
     std::map<clang::QualType, int, clang::QualTypeOrdering> typeIndex;

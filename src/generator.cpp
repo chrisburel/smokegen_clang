@@ -114,6 +114,25 @@ void SmokeGenerator::processDataStructures() {
         }
     }
 
+    // Add types from enums
+    for (auto const & e : enums) {
+        auto parent = e.second->getParent();
+        if (clang::isa<clang::TranslationUnitDecl>(parent)) {
+        }
+        else {
+            clang::NamedDecl *parentDecl = clang::cast<clang::NamedDecl>(parent);
+            auto const parentName = parentDecl->getQualifiedNameAsString();
+
+            if (contains(options->classList, parentName)) {
+                classIndex[parentName] = 1;
+                if (!contains(includedClasses, parentName)) {
+                    includedClasses.push_back(parentName);
+                }
+                usedTypes.insert(clang::QualType(e.second->getTypeForDecl(), 0));
+            }
+        }
+    }
+
     // if a class is used somewhere but not listed in the class list, mark it external
     for (auto const & iter : classes) {
         if (!iter.second) continue;
@@ -396,7 +415,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     // munged name => index
     std::map<std::string, int> methodNames;
     // class => list of munged names with possible methods or enum members
-    std::map<const clang::CXXRecordDecl*, std::map<std::string, std::vector<const clang::CXXMethodDecl*> > > classMungedNames;
+    std::map<const clang::CXXRecordDecl*, std::map<std::string, std::vector<const clang::ValueDecl*> > > classMungedNames;
 
     currentIdx = 1;
     for (auto const & iter : classIndex) {
@@ -408,7 +427,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
         bool isDeclaredVirtual = false;
         if (isExternal && !isDeclaredVirtual)
             continue;
-        std::map<std::string, std::vector<const clang::CXXMethodDecl*> >& map = classMungedNames[klass];
+        std::map<std::string, std::vector<const clang::ValueDecl*> >& map = classMungedNames[klass];
         for (auto const & meth : klass->methods()) {
             if (meth->getAccess() == clang::AS_private)
                 continue;
@@ -457,17 +476,18 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
             }
             parameterIndices[meth] = idx;
         }
-        //foreach (BasicTypeDeclaration* decl, klass->children()) {
-        //    const Enum* e = 0;
-        //    if ((e = dynamic_cast<Enum*>(decl))) {
-        //        if (e->access() == Access_private)
-        //            continue;
-        //        foreach (const EnumMember& member, e->members()) {
-        //            methodNames[member.name()] = 1;
-        //            map[member.name()].append(&member);
-        //        }
-        //    }
-        //}
+        for (auto const & decl : klass->decls()) {
+            const clang::EnumDecl* e = 0;
+            if ((clang::isa<clang::EnumDecl>(decl))) {
+                e = clang::cast<clang::EnumDecl>(decl);
+                if (e->getAccess() == clang::AS_private)
+                    continue;
+                for (auto const & member : e->enumerators()) {
+                    methodNames[member->getName()] = 1;
+                    map[member->getName()].push_back(member);
+                }
+            }
+        }
     }
     out << "};\n\n";
 
@@ -596,45 +616,38 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
             i++;
             methodCount++;
         }
-        //// enums
-        //foreach (BasicTypeDeclaration* decl, klass->children()) {
-        //    const Enum* e = 0;
-        //    if ((e = dynamic_cast<Enum*>(decl))) {
-        //        if (e->access() == Access_private)
-        //            continue;
+        // enums
+        for (clang::Decl *decl : klass->decls()) {
+            if (auto e = clang::dyn_cast<clang::EnumDecl>(decl)) {
+                if (e->getAccess() == clang::AS_private)
+                    continue;
 
-        //        Type *enumType;
-        //        if (e->name().isEmpty()) {
-        //            // unnamed enum
-        //            enumType = &types["long"];
-        //        } else {
-        //            enumType = &types[e->toString()];
-        //        }
+                clang::QualType enumType = clang::QualType(e->getTypeForDecl(), 0);
 
-        //        int index = 0;
-        //        QHash<Type*, int>::const_iterator typeIt;
-        //        if ((typeIt = typeIndex.constFind(enumType)) == typeIndex.constEnd()) {
-        //            // this enum doesn't have an index, so we don't want it here
-        //            continue;
-        //        } else {
-        //            index = *typeIt;
-        //        }
+                int index = 0;
+                auto const & typeIt = typeIndex.find(enumType);
+                if (typeIt == typeIndex.end()) {
+                    // this enum doesn't have an index, so we don't want it here
+                    continue;
+                } else {
+                    index = typeIt->second;
+                }
 
-        //        foreach (const EnumMember& member, e->members()) {
-        //            out << "    {" << iter.value() << ", " << methodNames[member.name()]
-        //                << ", 0, 0, Smoke::mf_static|Smoke::mf_enum, " << index
-        //                << ", " << xcall_index << "},";
-        //
-        //            // comment
-        //            out << "\t//" << i << " " << klass->toString() << "::" << member.name() << " (enum)";
-        //            out << "\n";
-        //            methodIdx[&member] = i;
-        //            xcall_index++;
-        //            i++;
-        //            methodCount++;
-        //        }
-        //    }
-        //}
+                for (auto const & member : e->enumerators()) {
+                    out << "    {" << iter.second << ", " << methodNames[member->getName()]
+                        << ", 0, 0, Smoke::mf_static|Smoke::mf_enum, " << index
+                        << ", " << xcall_index << "},";
+
+                    // comment
+                    out << "\t//" << i << " " << member->getQualifiedNameAsString() << " (enum)";
+                    out << "\n";
+                    enumIdx[member] = i;
+                    xcall_index++;
+                    i++;
+                    methodCount++;
+                }
+            }
+        }
         if (destructor) {
             out << "    {" << iter.second << ", " << methodNames[destructor->getNameAsString()] << ", 0, 0, Smoke::mf_dtor";
             if (destructor->getAccess() == clang::AS_private)
@@ -657,23 +670,25 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     // ambigious method list
     for (auto const & iter : classMungedNames) {
         const clang::CXXRecordDecl* klass = iter.first;
-        const std::map<std::string, std::vector<const clang::CXXMethodDecl*> >& map = iter.second;
+        const std::map<std::string, std::vector<const clang::ValueDecl*> >& map = iter.second;
 
         for (auto const & munged_it : map) {
             if (munged_it.second.size() < 2)
                 continue;
-            for (const clang::CXXMethodDecl* meth : munged_it.second) {
-                out << "    " << methodIdx[meth] << ',';
+            for (const clang::ValueDecl* value : munged_it.second) {
+                if (auto meth = clang::dyn_cast<clang::CXXMethodDecl>(value)) {
+                    out << "    " << methodIdx[meth] << ',';
 
-                // comment
-                out << "  // " << meth->getQualifiedNameAsString();
-                out << '(';
-                for (int j = 0; j < meth->getNumParams(); j++) {
-                    if (j > 0) out << ", ";
-                    out << meth->getParamDecl(j)->getType().getAsString();
+                    // comment
+                    out << "  // " << meth->getQualifiedNameAsString();
+                    out << '(';
+                    for (int j = 0; j < meth->getNumParams(); j++) {
+                        if (j > 0) out << ", ";
+                        out << meth->getParamDecl(j)->getType().getAsString();
+                    }
+                    out << ')';
+                    if (meth->isConst()) out << " const";
                 }
-                out << ')';
-                if (meth->isConst()) out << " const";
                 out << "\n";
             }
             out << "    0,\n";
@@ -704,7 +719,10 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
 
             // if there's only one matching method for this class and the munged name, insert the index into methodss
             if (munged_it.second.size() == 1) {
-                out << methodIdx[munged_it.second[0]];
+                if (auto meth = clang::dyn_cast<clang::CXXMethodDecl>(munged_it.second[0]))
+                    out << methodIdx[meth];
+                else if (auto enumDecl = clang::dyn_cast<clang::EnumConstantDecl>(munged_it.second[0]))
+                    out << enumIdx[enumDecl];
             } else {
                 // negative index into ambigious methods list
                 out << '-' << ambigiousIds[klass][munged_it.first];
