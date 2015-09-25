@@ -24,8 +24,9 @@ public:
     // items are checked to see if they exist in the smokeconfig file, as
     // specified in options.classList.
     void addClass(clang::CXXRecordDecl *D);
-
     void addEnum(clang::EnumDecl *D);
+    void addNamespace(clang::NamespaceDecl *D);
+    void addFunction(clang::FunctionDecl *D);
 
     void processDataStructures();
 
@@ -54,10 +55,12 @@ private:
 
     Options *options;
 
-    // All classes found while reading the header files.
+    // All classes, enums, and namespaces found while reading the header files.
     std::map<std::string, clang::CXXRecordDecl *> classes;
-
     std::map<std::string, clang::EnumDecl *> enums;
+    std::map<std::string, clang::NamespaceDecl *> namespaces;
+    // A list of functions that are not methods.
+    std::map<std::string, clang::FunctionDecl *> functions;
 
     // Stores the class index of each class, as it appears in the classes list
     // in the data file.  Classes are added to it, and as a final step we
