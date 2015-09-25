@@ -23,16 +23,25 @@ void SmokeGenerator::addFunction(clang::FunctionDecl *D) {
 }
 
 void SmokeGenerator::processDataStructures() {
+    // QGlobalSpace holds global-level enums and functions.
+    clang::NamespaceDecl *qGlobalSpace = clang::NamespaceDecl::Create(
+            *ctx, ctx->getTranslationUnitDecl(), false, clang::SourceLocation(), clang::SourceLocation(),
+            &ctx->Idents.get("QGlobalSpace"), nullptr);
+    namespaces[qGlobalSpace->getQualifiedNameAsString()] = qGlobalSpace;
+
     for (auto const &klass : classes) {
         if (contains(options->classList, klass.first) && klass.second->hasDefinition()) {
             classIndex[klass.first] = 1;
         }
     }
+    for (auto const &nspace : namespaces) {
+        if (contains(options->classList, nspace.first)) {
+            classIndex[nspace.first] = 1;
+        }
+    }
 
     // superclasses might be in different modules, still they need to be indexed for inheritanceList to work properly
     std::set<const clang::CXXRecordDecl*> superClasses;
-
-    classIndex["QGlobalSpace"] = 1;
 
     for (auto const &klass : classIndex) {
         includedClasses.push_back(klass.first);
