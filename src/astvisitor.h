@@ -9,8 +9,9 @@ public:
     SmokegenASTVisitor(clang::CompilerInstance &ci, SmokeGenerator &generator) : ci(ci), generator(generator) {}
 
     bool VisitCXXRecordDecl(clang::CXXRecordDecl *D);
-
     bool VisitEnumDecl(clang::EnumDecl *D);
+    bool VisitNamespaceDecl(clang::NamespaceDecl *D);
+    bool VisitFunctionDecl(clang::FunctionDecl *D);
 
     // clang lazily constructs the implicit methods of a C++ class (the
     // default constructor and destructor, etc) -- it only bothers to

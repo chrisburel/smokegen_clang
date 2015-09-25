@@ -26,6 +26,28 @@ bool SmokegenASTVisitor::VisitEnumDecl(clang::EnumDecl *D) {
     return true;
 }
 
+bool SmokegenASTVisitor::VisitNamespaceDecl(clang::NamespaceDecl *D) {
+    if (!D->getDeclName())
+        return false;
+
+    generator.addNamespace(D);
+
+    return true;
+}
+
+bool SmokegenASTVisitor::VisitFunctionDecl(clang::FunctionDecl *D) {
+    if (clang::isa<clang::CXXMethodDecl>(D)){
+        return true;
+    }
+
+    if (!D->getDeclName())
+        return false;
+
+    generator.addFunction(D);
+
+    return true;
+}
+
 void SmokegenASTVisitor::InstantiateImplicitMethods(clang::CXXRecordDecl* decl) {
     if (!decl || !decl->isThisDeclarationADefinition())
         return;
