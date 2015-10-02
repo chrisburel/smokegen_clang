@@ -46,7 +46,7 @@ private:
 
     bool hasTypeNonPublicParts(const clang::QualType &type) const;
 
-    std::string getTypeFlags(const clang::QualType &t, int *classIdx) const;
+    std::string getTypeFlags(clang::QualType t, int *classIdx) const;
 
     std::string mungedName(const clang::FunctionDecl *D) const;
     char munge(clang::QualType T) const;

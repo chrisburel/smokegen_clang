@@ -1087,7 +1087,11 @@ bool SmokeGenerator::hasTypeNonPublicParts(const clang::QualType &type) const {
     return false;
 }
 
-std::string SmokeGenerator::getTypeFlags(const clang::QualType &t, int *classIdx) const {
+std::string SmokeGenerator::getTypeFlags(clang::QualType t, int *classIdx) const {
+    if (t->isFunctionPointerType()) {
+        const auto& fn = t->getPointeeType()->getAs<clang::FunctionType>();
+        t = fn->getReturnType();
+    }
     clang::QualType noPointerType = dereferenced(t);
     auto D = noPointerType->getAsCXXRecordDecl();
 
