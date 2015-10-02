@@ -41,9 +41,18 @@ struct MappingTraits<Options> {
         io.mapOptional("qtMode", options.qtMode);
 
         io.mapOptional("exclude", options.excludeExpressions);
-        io.mapOptional("functions", options.includeFunctionNames);
+        io.mapOptional("functions", options.includeFunctions);
     }
 };
+
+template <>
+struct MappingTraits<FunctionMatchers> {
+    static void mapping(IO &io, FunctionMatchers &fms) {
+        io.mapOptional("names", fms.names);
+        io.mapOptional("signatures", fms.signatures);
+    }
+};
+
 };
 };
 
