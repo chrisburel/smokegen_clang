@@ -34,6 +34,8 @@ public:
 
     void writeDataFile(llvm::raw_ostream &out);
 
+    clang::PrintingPolicy pp() const { return ci.getSema().getPrintingPolicy(); }
+
 private:
     std::set<const clang::CXXRecordDecl *> superClassList(const clang::CXXRecordDecl *klass) const;
     std::set<const clang::CXXRecordDecl *> descendantsList(const clang::CXXRecordDecl *klass) const;
