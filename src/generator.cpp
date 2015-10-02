@@ -797,10 +797,10 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
             out << ", " << (isExternal ? 0 : xcall_index) << "},";
 
             // comment
-            out << "\t//" << i << " " << meth->getReturnType().getAsString(pp()) << " " << meth->getQualifiedNameAsString() << '(';
+            out << "\t//" << i << " " << getCanonicalType(meth->getReturnType()).getAsString(pp()) << " " << meth->getQualifiedNameAsString() << '(';
             for (int j = 0; j < meth->getNumParams(); j++) {
                 if (j > 0) out << ", ";
-                out << meth->getParamDecl(j)->getType().getAsString(pp());
+                out << getCanonicalType(meth->getParamDecl(j)->getType()).getAsString(pp());
             }
             out << ')';
             if (asMethod) {
