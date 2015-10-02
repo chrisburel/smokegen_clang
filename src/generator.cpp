@@ -1056,8 +1056,15 @@ bool SmokeGenerator::hasClassVirtualDestructor(const clang::CXXRecordDecl *klass
 }
 
 bool SmokeGenerator::hasTypeNonPublicParts(const clang::QualType &type) const {
-    if (type->getAsCXXRecordDecl() && type->getAsCXXRecordDecl()->getAccess() != clang::AS_public)
-        return true;
+    if (type->getAsCXXRecordDecl()) {
+        switch(type->getAsCXXRecordDecl()->getAccess()) {
+            case clang::AS_protected:
+            case clang::AS_private:
+                return true;
+            default:
+                return false;
+        }
+    }
     return false;
 }
 
