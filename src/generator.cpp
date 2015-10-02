@@ -1089,10 +1089,6 @@ bool SmokeGenerator::hasTypeNonPublicParts(const clang::QualType &type) const {
 
 std::string SmokeGenerator::getTypeFlags(const clang::QualType &t, int *classIdx) const {
     auto tname = t.getAsString();
-    if (!t.isCanonical()) {
-        return getTypeFlags(t.getCanonicalType(), classIdx);
-    }
-
     clang::QualType noPointerType = dereferenced(t);
     auto D = noPointerType->getAsCXXRecordDecl();
 
@@ -1181,10 +1177,6 @@ std::string SmokeGenerator::mungedName(const clang::FunctionDecl *D) const {
 }
 
 char SmokeGenerator::munge(clang::QualType type) const {
-    if (!type.isCanonical()) {
-        return munge(type.getCanonicalType());
-    }
-
     type = dereferenced(type);
 
     if ((type->isPointerType() && type->getPointeeType()->isPointerType()) ||
