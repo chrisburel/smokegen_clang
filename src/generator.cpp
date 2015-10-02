@@ -512,7 +512,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     for (auto const &it : sortedTypes) {
         clang::QualType t = it.second;
         // don't include void as a type
-        if (t.getAsString() == "void")
+        if (t->isVoidType())
             continue;
         int classIdx = 0;
         std::string flags = getTypeFlags(t, &classIdx);
