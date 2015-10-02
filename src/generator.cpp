@@ -1059,7 +1059,7 @@ std::string SmokeGenerator::getTypeFlags(const clang::QualType &t, int *classIdx
         // support some of the weird quirks the kalyptus code has
         flags += "Smoke::t_voidp|";
     } else if (D) {
-        if (D->getDescribedClassTemplate()) {
+        if (isTemplate(D)) {
             if (options->qtMode && D->getQualifiedNameAsString() == "QFlags" && !t->isReferenceType() && t->isPointerType()) {
                 flags += "Smoke::t_uint|";
             } else {
