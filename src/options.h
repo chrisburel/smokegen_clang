@@ -24,6 +24,30 @@ struct Options {
 
     std::vector<std::regex> excludeExpressions;
     FunctionMatchers includeFunctions;
+
+    bool typeExcluded(const std::string &name) const {
+        for (const auto & regex : excludeExpressions) {
+            if (std::regex_match(name, regex))
+                return true;
+        }
+        return false;
+    }
+
+    bool functionNameIncluded(const std::string &name) const {
+        for (const auto & regex : includeFunctions.names) {
+            if (std::regex_match(name, regex))
+                return true;
+        }
+        return false;
+    }
+
+    bool functionSignatureIncluded(const std::string &name) const {
+        for (const auto & regex : includeFunctions.signatures) {
+            if (std::regex_match(name, regex))
+                return true;
+        }
+        return false;
+    }
 };
 
 #endif
