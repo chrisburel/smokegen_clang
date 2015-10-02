@@ -1098,7 +1098,7 @@ std::string SmokeGenerator::getTypeFlags(const clang::QualType &t, int *classIdx
         flags += "Smoke::t_voidp|";
     } else if (D) {
         if (isTemplate(D)) {
-            if (options->qtMode && D->getQualifiedNameAsString() == "QFlags" && !t->isReferenceType() && t->isPointerType()) {
+            if (options->qtMode && D->getNameAsString() == "QFlags" && !t->isReferenceType() && !t->isPointerType()) {
                 flags += "Smoke::t_uint|";
             } else {
                 flags += "Smoke::t_voidp|";
