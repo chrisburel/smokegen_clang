@@ -5,6 +5,7 @@
 #include "astconsumer.h"
 #include "frontendaction.h"
 #include "options_yaml.h"
+#include "options.h"
 
 static llvm::cl::OptionCategory SmokegenCategory("SMOKE binding generator");
 
@@ -14,6 +15,9 @@ llvm::cl::opt<std::string> SmokeConfigFile(
     llvm::cl::value_desc("filename"),
     llvm::cl::cat(SmokegenCategory)
 );
+
+constexpr char SizeTDecider<unsigned int>::smokeName[];
+constexpr char SizeTDecider<unsigned long>::smokeName[];
 
 class SmokegenFrontendActionFactory : public clang::tooling::FrontendActionFactory {
 public:
