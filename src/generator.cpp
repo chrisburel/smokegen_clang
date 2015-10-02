@@ -1150,7 +1150,7 @@ std::string SmokeGenerator::getTypeFlags(clang::QualType t, int *classIdx) const
             typeName = "u" + typeName;
 
         flags += typeName + '|';
-    } else if (t->isEnumeralType()) {
+    } else if (noPointerType->isEnumeralType()) {
         flags += "Smoke::t_enum|";
         auto tag = noPointerType->getAsTagDecl();
         if (!tag) {
