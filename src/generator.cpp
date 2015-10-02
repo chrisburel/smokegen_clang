@@ -514,7 +514,6 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
                 continue;
             }
             std::vector<int> indices(meth->getNumParams());
-            std::string comment;
             for (int i = 0; i < meth->getNumParams(); ++i) {
                 auto param = meth->getParamDecl(i);
                 auto t = param->getType();
@@ -522,7 +521,6 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
                     llvm::outs() << "missing type: " << t.getAsString() << " in method " << meth->getNameAsString() << " (while building munged names map)\n";
                 }
                 indices[i] = typeIndex[t];
-                comment += t.getAsString() + ", ";
             }
             int idx = 0;
             auto const & it = parameterList.find(indices);
@@ -534,8 +532,10 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
                     if (i > 0) out << ", ";
                     out << indices[i];
                 }
-                if (comment.substr(comment.size()-2, comment.size()) == ", ")
-                    comment = comment.substr(0, comment.size()-2);
+                std::string comment = meth->getType().getAsString(pp());
+                comment.erase(0, comment.find('(') + 1);
+                comment.pop_back();
+
                 out << ", 0,\t//" << idx << "  " << comment << "\n";
                 currentIdx += indices.size() + 1;
             }
