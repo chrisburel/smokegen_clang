@@ -784,7 +784,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
             if (retType->isVoidType()) {
                 out << ", 0";
             } else if (!typeIndex.count(retType)) {
-                llvm::outs() << "missing type: " << retType.getAsString() << " in method " << meth->getQualifiedNameAsString() << " (while writing out methods table)\n";
+                llvm::outs() << "missing type: " << retType.getAsString() << " in method " << getFullFunctionPrototype(meth, pp()) << " (while writing out methods table)\n";
             } else {
                 out << ", " << typeIndex[retType];
             }
