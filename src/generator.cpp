@@ -101,6 +101,50 @@ void SmokeGenerator::processDataStructures() {
         }
     }
 
+    // all enums that don't have a parent are put under QGlobalSpace, too
+    for (const auto & it : enums) {
+        clang::EnumDecl *e = it.second;
+        if (e->getParent()->isTranslationUnit()) {
+            // see if it is already defined in a parent module
+            //if (isRepeating(parentModules, parent->name().toLatin1(), e)) {
+            //    continue;
+            //}
+
+            // QGlobalSpace is used, add it to the class index
+            classIndex[globalSpace->getQualifiedNameAsString()] = 1;
+
+            // Make a copy of this enum decl inside the QGlobalSpace namespace
+            auto newEnum = clang::EnumDecl::Create(*ctx,
+                globalSpace,
+                e->getSourceRange().getBegin(),
+                clang::SourceLocation(),
+                e->getIdentifier(),
+                nullptr,
+                e->isScoped(),
+                e->isScopedUsingClassTag(),
+                e->isFixed()
+            );
+
+            for (const auto & enumerator : e->enumerators()) {
+                // copy these too.
+                newEnum->addDecl(clang::EnumConstantDecl::Create(
+                    *ctx,
+                    newEnum,
+                    enumerator->getSourceRange().getBegin(),
+                    enumerator->getIdentifier(),
+                    enumerator->getType(),
+                    enumerator->getInitExpr(),
+                    enumerator->getInitVal()
+                ));
+            }
+
+            globalSpace->addDecl(newEnum);
+
+            e = newEnum;
+        }
+        usedTypes.insert(clang::QualType(e->getTypeForDecl(), 0));
+    }
+
     // Get used types in class methods
     for (auto const &klassName : includedClasses) {
         if (!classes.count(klassName)) {
@@ -182,25 +226,6 @@ void SmokeGenerator::processDataStructures() {
             // Add the types from the parameters of this method
             for (auto const &param : method->params()) {
                 usedTypes.insert(param->getType());
-            }
-        }
-    }
-
-    // Add types from enums
-    for (auto const & e : enums) {
-        auto parent = e.second->getParent();
-        if (clang::isa<clang::TranslationUnitDecl>(parent)) {
-        }
-        else {
-            clang::NamedDecl *parentDecl = clang::cast<clang::NamedDecl>(parent);
-            auto const parentName = parentDecl->getQualifiedNameAsString();
-
-            if (contains(options->classList, parentName)) {
-                classIndex[parentName] = 1;
-                if (!contains(includedClasses, parentName)) {
-                    includedClasses.push_back(parentName);
-                }
-                usedTypes.insert(clang::QualType(e.second->getTypeForDecl(), 0));
             }
         }
     }
@@ -455,6 +480,9 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     for (auto const &type : usedTypes) {
 
         std::string typeString = type.getAsString(pp());
+        if (typeString.substr(0, 14) == "QGlobalSpace::") {
+            typeString = typeString.substr(14, typeString.size());
+        }
         if (!typeString.empty()) {
             sortedTypes[typeString] = type;
         }
