@@ -84,7 +84,7 @@ private:
 
     // A list of classes that do not appear in the classList, but are seen when
     // reading the header files
-    std::set<const clang::CXXRecordDecl *> externalClasses;
+    std::set<const clang::NamedDecl *> externalClasses;
 
     // A list of classes that appear in the classList from the options, and
     // have actually been found when reading the header files.
