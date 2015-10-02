@@ -11,6 +11,11 @@ void SmokeGenerator::addClass(clang::CXXRecordDecl *D) {
 }
 
 void SmokeGenerator::addEnum(clang::EnumDecl *D) {
+    auto parent = D->getParent();
+    if (!parent->isTranslationUnit() && !clang::isa<clang::NamedDecl>(parent)) {
+        return;
+    }
+
     enums[D->getQualifiedNameAsString()] = D;
 }
 
