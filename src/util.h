@@ -24,4 +24,20 @@ clang::QualType dereferenced(const clang::QualType &type) {
     return dereferenced;
 }
 
+std::string getFullFunctionPrototype(clang::FunctionDecl *d, const clang::PrintingPolicy &policy) {
+    // Use getAsStringInternal to inject the function name into the string that
+    // FunctionProtoType.getAsString() returns.
+    auto name = d->getQualifiedNameAsString();
+    d->getType().getAsStringInternal(name, policy);
+
+    // The resulting string will have the function name wrapped in parens.
+    // Remove them.
+    auto firstOpenParen = name.find('(');
+    name.erase(firstOpenParen, 1);
+    auto firstCloseParen = name.find(')');
+    name.erase(firstCloseParen, 1);
+
+    return name;
+}
+
 #endif
