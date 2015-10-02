@@ -541,6 +541,10 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     for (auto const &type : usedTypes) {
 
         std::string typeString = type.getAsString(pp());
+        if (typeString == "__va_list_tag *") {
+            typeString = "va_list";
+        }
+
         if (typeString.substr(0, 14) == "QGlobalSpace::") {
             typeString = typeString.substr(14, typeString.size());
         }
