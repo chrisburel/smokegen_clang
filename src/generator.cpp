@@ -1111,8 +1111,11 @@ std::string SmokeGenerator::getTypeFlags(const clang::QualType &t, int *classIdx
         flags += "Smoke::t_voidp|";
     }
 
-    if (t->isReferenceType())
+    if (t->isReferenceType()) {
         flags += "Smoke::tf_ref|";
+        if (t->getAs<clang::ReferenceType>()->getPointeeType()->isPointerType())
+            flags += "Smoke::tf_ptr|";
+    }
     if (t->isPointerType())
         flags += "Smoke::tf_ptr|";
     if (!t->isReferenceType() && !t->isPointerType())
