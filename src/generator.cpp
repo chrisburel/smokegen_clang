@@ -178,6 +178,8 @@ void SmokeGenerator::processDataStructures() {
             if (options->typeExcluded(field->getQualifiedNameAsString())) {
                 continue;
             }
+            usedTypes.insert(field->getType().getCanonicalType());
+
             // Set name
             clang::DeclarationName Name = ctx->DeclarationNames.getIdentifier(&ctx->Idents.get(field->getName()));
             clang::SourceLocation FieldLoc = field->getLocation();
