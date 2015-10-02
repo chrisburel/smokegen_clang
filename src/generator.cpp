@@ -67,14 +67,20 @@ void SmokeGenerator::processDataStructures() {
                 continue;
             }
 
-            clang::FunctionDecl *newFn;
+            if (auto parent = clang::dyn_cast<clang::NamedDecl>(fn->getParent())) {
+                if (!contains(options->classList, parent->getQualifiedNameAsString())) {
+                    continue;
+                }
+            }
+
+            clang::FunctionDecl *newFn = fn;
             if (isGlobalFunction) {
                 // QGlobalSpace is used, add it to the class index
                 classIndex[globalSpace->getQualifiedNameAsString()] = 1;
 
                 // Make a copy of this function decl inside the QGlobalSpace
                 // namespace
-                newFn = clang::FunctionDecl::Create(*ctx, parent,
+                newFn = clang::FunctionDecl::Create(*ctx, globalSpace,
                     fn->getSourceRange().getBegin(),
                     fn->getNameInfo().getLoc(), fn->getNameInfo().getName(),
                     fn->getType(), fn->getTypeSourceInfo(),
