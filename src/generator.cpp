@@ -112,6 +112,9 @@ void SmokeGenerator::processDataStructures() {
     // all enums that don't have a parent are put under QGlobalSpace, too
     for (const auto & it : enums) {
         clang::EnumDecl *e = it.second;
+        if (options->typeExcluded(it.first)) {
+            continue;
+        }
         if (e->getParent()->isTranslationUnit()) {
             // see if it is already defined in a parent module
             //if (isRepeating(parentModules, parent->name().toLatin1(), e)) {
