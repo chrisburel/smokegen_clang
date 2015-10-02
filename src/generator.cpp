@@ -645,9 +645,13 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
                     if (i > 0) out << ", ";
                     out << indices[i];
                 }
-                std::string comment = meth->getType().getAsString(pp());
-                comment.erase(0, comment.find('(') + 1);
-                comment.pop_back();
+                std::string comment;
+                for (const auto& param : meth->params()) {
+                    comment += getCanonicalType(param->getType()).getAsString(pp()) + ", ";
+                }
+                if (comment.size()) {
+                    comment.erase(comment.size()-2, comment.size());
+                }
 
                 out << ", 0,\t//" << idx << "  " << comment << "\n";
                 currentIdx += indices.size() + 1;
