@@ -73,6 +73,12 @@ void SmokeGenerator::processDataStructures() {
                 }
             }
 
+            // Ignore functions where any of the arguments or return type
+            // depends on a template parameter.
+            if (fn->isDependentContext()) {
+                continue;
+            }
+
             clang::FunctionDecl *newFn = fn;
             if (isGlobalFunction) {
                 // QGlobalSpace is used, add it to the class index
