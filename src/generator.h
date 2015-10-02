@@ -8,13 +8,15 @@
 #include <clang/AST/DeclCXX.h>
 #include <clang/AST/ASTContext.h>
 #include <clang/AST/TypeOrdering.h>
+#include <clang/Frontend/CompilerInstance.h>
+#include <clang/Sema/Sema.h>
 #include <llvm/Support/raw_ostream.h>
 
 #include "options.h"
 
 class SmokeGenerator {
 public:
-    SmokeGenerator(Options *options) : options(options) {};
+    SmokeGenerator(clang::CompilerInstance &ci, Options *options) : ci(ci), options(options) {}
 
     void setASTContext(clang::ASTContext *ctx) { this->ctx = ctx; }
 
@@ -92,6 +94,8 @@ private:
     // Stores the relationship between a manually created method for a field
     // accessor, and the field it accesses.
     std::map<const clang::CXXMethodDecl *, const clang::FieldDecl *> fieldAccessors;
+
+    clang::CompilerInstance &ci;
 };
 
 #endif
