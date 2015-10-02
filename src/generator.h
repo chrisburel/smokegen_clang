@@ -57,6 +57,8 @@ private:
 
     bool isClassUsed(const clang::CXXRecordDecl* klass) const;
 
+    void insertTemplateParameters(const clang::QualType type);
+
     Options *options;
 
     // All classes, enums, and namespaces found while reading the header files.

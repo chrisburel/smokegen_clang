@@ -262,6 +262,10 @@ void SmokeGenerator::processDataStructures() {
         }
     }
 
+    for (const auto & type : usedTypes) {
+        insertTemplateParameters(type);
+    }
+
     // if a class is used somewhere but not listed in the class list, mark it external
     for (auto const & iter : classes) {
         if (isTemplate(iter.second) || contains(options->voidpTypes, iter.first))
@@ -1259,4 +1263,21 @@ bool SmokeGenerator::isClassUsed(const clang::CXXRecordDecl* klass) const {
             return true;
     }
     return false;
+}
+void SmokeGenerator::insertTemplateParameters(const clang::QualType type) {
+    const auto recordDecl = type->getAsCXXRecordDecl();
+    if (!recordDecl) {
+        return;
+    }
+    const auto templateSpecializationDecl = clang::dyn_cast<clang::ClassTemplateSpecializationDecl>(recordDecl);
+    if (!templateSpecializationDecl) {
+        return;
+    }
+
+    const auto & args = templateSpecializationDecl->getTemplateArgs();
+    for (int i=0; i < args.size(); ++i) {
+        const auto & arg = args[i];
+        usedTypes.insert(getCanonicalType(arg.getAsType()));
+        insertTemplateParameters(getCanonicalType(arg.getAsType()));
+    }
 }
