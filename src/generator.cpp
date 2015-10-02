@@ -1067,7 +1067,9 @@ std::string SmokeGenerator::getTypeFlags(const clang::QualType &t, int *classIdx
             }
         } else {
             flags += "Smoke::t_class|";
-            *classIdx = classIndex.at(D->getQualifiedNameAsString());
+            if (classIndex.count(D->getQualifiedNameAsString())) {
+                *classIdx = classIndex.at(D->getQualifiedNameAsString());
+            }
         }
     } else if (t->isBuiltinType() && t.getAsString() != "void" && !t->isPointerType() && !t->isReferenceType()) {
         flags += "Smoke::t_";
