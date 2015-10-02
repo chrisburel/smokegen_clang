@@ -18,11 +18,11 @@ bool isTemplate(const clang::CXXRecordDecl *D) {
 
 clang::QualType dereferenced(const clang::QualType &type) {
     clang::QualType dereferenced = type;
-    while(dereferenced->isPointerType()) {
-        dereferenced = dereferenced->getPointeeType();
-    }
     if (auto refType = dereferenced->getAs<clang::ReferenceType>()) {
         dereferenced = refType->getPointeeType();
+    }
+    while(dereferenced->isPointerType()) {
+        dereferenced = dereferenced->getPointeeType();
     }
     return dereferenced;
 }
