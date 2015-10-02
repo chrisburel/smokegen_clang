@@ -43,6 +43,11 @@ std::string getFullFunctionPrototype(const clang::FunctionDecl *d, const clang::
     auto firstCloseParen = name.find(')');
     name.erase(firstCloseParen, 1);
 
+    if (auto ctor = clang::dyn_cast<clang::CXXConstructorDecl>(d)) {
+        name.erase(0, 5);
+        name = ctor->getNameAsString() + " *" + name;
+    }
+
     return name;
 }
 
