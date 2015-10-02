@@ -228,7 +228,7 @@ void SmokeGenerator::processDataStructures() {
             if (method->getAccess() == clang::AS_private) {
                 continue;
             }
-            if (hasTypeNonPublicParts(method->getReturnType())) {
+            if (hasTypeNonPublicParts(method->getReturnType()) || options->typeExcluded(getFullFunctionPrototype(method, pp()))) {
                 continue;
             }
             if (method->isCopyAssignmentOperator() && method->isImplicit())
