@@ -67,7 +67,6 @@ void SmokeGenerator::processDataStructures() {
                 continue;
             }
 
-            clang::NamespaceDecl *parent = globalSpace;
             clang::FunctionDecl *newFn;
             if (isGlobalFunction) {
                 // QGlobalSpace is used, add it to the class index
@@ -83,10 +82,6 @@ void SmokeGenerator::processDataStructures() {
                     fn->hasWrittenPrototype(), fn->isConstexpr());
                 globalSpace->addDecl(newFn);
                 newFn->setParams(fn->parameters());
-            }
-            else {
-                parent = namespaces[clang::cast<clang::NamespaceDecl>(fn->getParent())->getQualifiedNameAsString()];
-                newFn = fn;
             }
 
             //if (isRepeating(parentModules, parent->name().toLatin1(), meth)) {
