@@ -195,6 +195,16 @@ void SmokeGenerator::processDataStructures() {
             if (options->typeExcluded(field->getQualifiedNameAsString())) {
                 continue;
             }
+            clang::QualType getterReturnType = field->getType();
+            if (getterReturnType->getAsCXXRecordDecl()) {
+                // Skip anonymous structs
+                if (!getterReturnType->getAsCXXRecordDecl()->isAnonymousStructOrUnion()) {
+                    continue;
+                }
+                if (!(options->qtMode && getterReturnType->getAsCXXRecordDecl()->getNameAsString() == "QFlags")) {
+                    getterReturnType = ctx->getLValueReferenceType(getterReturnType);
+                }
+            }
             usedTypes.insert(getCanonicalType(getterReturnType));
 
             // Set name
@@ -205,7 +215,7 @@ void SmokeGenerator::processDataStructures() {
             // Set return type
             auto protoInfo = clang::FunctionProtoType::ExtProtoInfo();
             protoInfo.TypeQuals |= clang::Qualifiers::Const; // set method->setIsConst(true)
-            clang::QualType functionType = ctx->getFunctionType(field->getType(), clang::ArrayRef<clang::QualType>(), protoInfo);
+            clang::QualType functionType = ctx->getFunctionType(getterReturnType, clang::ArrayRef<clang::QualType>(), protoInfo);
 
             clang::CXXMethodDecl *method = clang::CXXMethodDecl::Create(*ctx, klass, FieldLoc,
                     NameInfo, functionType,
