@@ -167,6 +167,8 @@ void SmokeGenerator::processDataStructures() {
             if (hasTypeNonPublicParts(method->getReturnType())) {
                 continue;
             }
+            if (method->isCopyAssignmentOperator() && method->isImplicit())
+                continue;
 
             if (method->getKind() == clang::Decl::CXXConstructor) {
                 // clang reports constructors as returning void.  According to
@@ -496,6 +498,8 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
             if (meth->getAccess() == clang::AS_private)
                 continue;
             if (isExternal && !isDeclaredVirtual)
+                continue;
+            if (meth->isCopyAssignmentOperator() && meth->isImplicit())
                 continue;
 
             methodNames[meth->getNameAsString()] = 1;
