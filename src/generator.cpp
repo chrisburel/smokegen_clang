@@ -1109,6 +1109,10 @@ std::string SmokeGenerator::getTypeFlags(clang::QualType t, int *classIdx) const
     clang::QualType noPointerType = dereferenced(t);
     auto D = noPointerType->getAsCXXRecordDecl();
 
+    clang::PrintingPolicy noTagKeyword = pp();
+    noTagKeyword.SuppressTagKeyword = true;
+    std::string typeName = t.getUnqualifiedType().getAsString(noTagKeyword);
+
     std::string flags;
     if (contains(options->voidpTypes, dereferenced(t).getUnqualifiedType().getAsString(pp()))) {
         // support some of the weird quirks the kalyptus code has
@@ -1128,10 +1132,6 @@ std::string SmokeGenerator::getTypeFlags(clang::QualType t, int *classIdx) const
         }
     } else if (t->isBuiltinType() && t.getAsString() != "void" && !t->isPointerType() && !t->isReferenceType()) {
         flags += "Smoke::t_";
-        clang::LangOptions options;
-        clang::PrintingPolicy noTagKeyword = pp();
-        noTagKeyword.SuppressTagKeyword = true;
-        std::string typeName = t.getUnqualifiedType().getAsString(noTagKeyword);
 
         // replace the unsigned stuff, look the type up in Util::typeMap and if
         // necessary, add a 'u' for unsigned types at the beginning again
@@ -1170,17 +1170,22 @@ std::string SmokeGenerator::getTypeFlags(clang::QualType t, int *classIdx) const
         flags += "Smoke::t_voidp|";
     }
 
-    if (t->isReferenceType()) {
-        flags += "Smoke::tf_ref|";
-        if (t->getAs<clang::ReferenceType>()->getPointeeType()->isPointerType())
-            flags += "Smoke::tf_ptr|";
-    }
-    if (t->isPointerType())
-        flags += "Smoke::tf_ptr|";
-    if (!t->isReferenceType() && !t->isPointerType())
+    if (typeName == "__va_list_tag *") {
         flags += "Smoke::tf_stack|";
-    if (noPointerType.isConstQualified())
-        flags += "Smoke::tf_const|";
+    }
+    else {
+        if (t->isReferenceType()) {
+            flags += "Smoke::tf_ref|";
+            if (t->getAs<clang::ReferenceType>()->getPointeeType()->isPointerType())
+                flags += "Smoke::tf_ptr|";
+        }
+        if (t->isPointerType())
+            flags += "Smoke::tf_ptr|";
+        if (!t->isReferenceType() && !t->isPointerType())
+            flags += "Smoke::tf_stack|";
+        if (noPointerType.isConstQualified())
+            flags += "Smoke::tf_const|";
+    }
     if (flags[flags.size()-1] == '|') {
         flags.pop_back();
     }
