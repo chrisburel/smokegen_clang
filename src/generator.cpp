@@ -1104,7 +1104,7 @@ std::string SmokeGenerator::getTypeFlags(const clang::QualType &t, int *classIdx
         if (classIndex.count(parentDecl->getQualifiedNameAsString())) {
             *classIdx = classIndex.at(parentDecl->getQualifiedNameAsString());
         }
-        else if (clang::isa<clang::TranslationUnitDecl>(parent)) {
+        else if (parent->isTranslationUnit()) {
             *classIdx = classIndex.at("QGlobalSpace");
         }
     } else {
