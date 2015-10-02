@@ -62,7 +62,7 @@ void SmokeGenerator::processDataStructures() {
 
         for (auto fn : fns) {
 
-            bool isGlobalFunction = fn->getParent()->isTranslationUnit();
+            bool isGlobalFunction = fn->getParent()->isTranslationUnit() || clang::isa<clang::LinkageSpecDecl>(fn->getParent());
 
             // functions in named namespaces are covered by the class list - only check for top-level functions here
             if ((isGlobalFunction && (!options->functionNameIncluded(fn->getQualifiedNameAsString()) && !options->functionSignatureIncluded(fnString)))
