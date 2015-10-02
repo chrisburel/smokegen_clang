@@ -160,13 +160,10 @@ void SmokeGenerator::processDataStructures() {
             usedTypes.insert(getCanonicalType(clang::QualType(e->getTypeForDecl(), 0)));
         }
         else {
-            if (auto parent = clang::dyn_cast<clang::CXXRecordDecl>(e->getParent())) {
+            if (auto parent = clang::dyn_cast<clang::NamedDecl>(e->getParent())) {
                 if (contains(options->classList, parent->getQualifiedNameAsString())) {
                     usedTypes.insert(getCanonicalType(clang::QualType(e->getTypeForDecl(), 0)));
                 }
-            }
-            else {
-                usedTypes.insert(getCanonicalType(clang::QualType(e->getTypeForDecl(), 0)));
             }
         }
     }
