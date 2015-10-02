@@ -4,11 +4,23 @@
 #include <llvm/Support/YAMLTraits.h>
 #include "options.h"
 
-LLVM_YAML_IS_SEQUENCE_VECTOR(std::string);
 LLVM_YAML_IS_SEQUENCE_VECTOR(std::regex);
 
 namespace llvm {
 namespace yaml {
+template <>
+struct SequenceTraits<std::vector<std::string> > {
+    static size_t size(IO &io, std::vector<std::string> &vec) {
+        return vec.size();
+    }
+
+    static std::string &element(IO &io, std::vector<std::string> &vec, size_t index) {
+        // We never write out this yaml file, and we want the types specified
+        // in the yaml file to append to our vector, not overwrite elements.
+        vec.resize(vec.size() + 1);
+        return vec[vec.size() - 1];
+    }
+};
 
 template <>
 struct ScalarTraits<std::regex> {
