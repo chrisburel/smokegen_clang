@@ -33,7 +33,7 @@ struct Options {
     std::vector<std::string> parentModules;
     std::string libDir;
     std::vector<std::string> scalarTypes = {"long long", "long long int", "unsigned long long", "unsigned long long int"};
-    std::vector<std::string> voidpTypes = {"long long", "long long int", "unsigned long long", "unsigned long long int"};
+    std::vector<std::string> voidpTypes = {"long long", "long long int", "unsigned long long", "unsigned long long int", "FILE", "__va_list_tag"};
     std::vector<std::string> headerList;
     std::vector<std::string> classList;
     std::map<std::string, std::string> typeMap = {
