@@ -631,7 +631,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
                 auto param = meth->getParamDecl(i);
                 auto t = getCanonicalType(param->getType());
                 if (!typeIndex.count(t)) {
-                    llvm::outs() << "missing type: " << t.getAsString() << " in method " << meth->getNameAsString() << " (while building munged names map)\n";
+                    llvm::outs() << "missing type: " << t.getAsString() << " in method " << getFullFunctionPrototype(meth, pp()) << " (while building munged names map)\n";
                 }
                 indices[i] = typeIndex[t];
             }
