@@ -7,7 +7,7 @@
 bool SmokegenASTVisitor::VisitCXXRecordDecl(clang::CXXRecordDecl *D) {
     // We can't make bindings for things that don't have names.
     if (!D->getDeclName())
-        return false;
+        return true;
 
     InstantiateImplicitMethods(D);
 
@@ -19,7 +19,7 @@ bool SmokegenASTVisitor::VisitCXXRecordDecl(clang::CXXRecordDecl *D) {
 bool SmokegenASTVisitor::VisitEnumDecl(clang::EnumDecl *D) {
     // We can't make bindings for things that don't have names.
     if (!D->getDeclName())
-        return false;
+        return true;
 
     generator.addEnum(D);
 
@@ -28,7 +28,7 @@ bool SmokegenASTVisitor::VisitEnumDecl(clang::EnumDecl *D) {
 
 bool SmokegenASTVisitor::VisitNamespaceDecl(clang::NamespaceDecl *D) {
     if (!D->getDeclName())
-        return false;
+        return true;
 
     generator.addNamespace(D);
 
@@ -41,7 +41,7 @@ bool SmokegenASTVisitor::VisitFunctionDecl(clang::FunctionDecl *D) {
     }
 
     if (!D->getDeclName())
-        return false;
+        return true;
 
     generator.addFunction(D);
 
