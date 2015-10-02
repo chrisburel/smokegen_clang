@@ -25,6 +25,8 @@ public:
     void InstantiateImplicitMethods(clang::CXXRecordDecl* decl);
 
 private:
+    bool canClassBeCopied(const clang::CXXRecordDecl *klass) const;
+
     clang::CompilerInstance &ci;
     SmokeGenerator &generator;
 };
