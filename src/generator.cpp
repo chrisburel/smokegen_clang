@@ -399,13 +399,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     std::map<std::string, clang::QualType> sortedTypes;
     for (auto const &type : usedTypes) {
 
-        // We don't want the "class" keyword in front of all the class types
-        clang::LangOptions options;
-        clang::PrintingPolicy pp(options);
-        pp.SuppressTagKeyword = true;
-        pp.Bool = true;
-
-        std::string typeString = type.getAsString(pp);
+        std::string typeString = type.getAsString(pp());
         if (!typeString.empty()) {
             sortedTypes[typeString] = type;
         }
@@ -916,10 +910,9 @@ std::string SmokeGenerator::getTypeFlags(const clang::QualType &t, int *classIdx
     } else if (t->isBuiltinType() && t.getAsString() != "void" && !t->isPointerType() && !t->isReferenceType()) {
         flags += "Smoke::t_";
         clang::LangOptions options;
-        clang::PrintingPolicy pp(options);
-        pp.SuppressTagKeyword = true;
-        pp.Bool = true;
-        std::string typeName = t.getUnqualifiedType().getAsString(pp);
+        clang::PrintingPolicy noTagKeyword = pp();
+        noTagKeyword.SuppressTagKeyword = true;
+        std::string typeName = t.getUnqualifiedType().getAsString(noTagKeyword);
 
         // replace the unsigned stuff, look the type up in Util::typeMap and if
         // necessary, add a 'u' for unsigned types at the beginning again
