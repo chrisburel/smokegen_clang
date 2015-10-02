@@ -258,11 +258,14 @@ void SmokeGenerator::processDataStructures() {
         }
 
         // Add types from methods
-        for (auto const &method : klass->methods()) {
+        std::vector<clang::CXXMethodDecl*> methods;
+        methods.insert(methods.begin(), klass->method_begin(), klass->method_end());
+        for (auto const &method : methods) {
             if (method->getAccess() == clang::AS_private) {
                 continue;
             }
             if (hasTypeNonPublicParts(method->getReturnType()) || options->typeExcluded(getFullFunctionPrototype(method, pp()))) {
+                klass->removeDecl(method);
                 continue;
             }
             if (method->isCopyAssignmentOperator() && method->isImplicit())
