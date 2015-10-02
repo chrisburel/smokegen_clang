@@ -175,6 +175,8 @@ void SmokeGenerator::processDataStructures() {
             superClasses.insert(base.getType()->getAsCXXRecordDecl());
         }
 
+        checkForAbstractClass(klass);
+
         auto ptrToThisClassType = ctx->getPointerType(clang::QualType(klass->getTypeForDecl(), 0));
 
         std::vector<clang::DeclaratorDecl *> fields;
@@ -1271,6 +1273,25 @@ bool SmokeGenerator::isClassUsed(const clang::CXXRecordDecl* klass) const {
     }
     return false;
 }
+
+void SmokeGenerator::checkForAbstractClass(clang::CXXRecordDecl* klass) const {
+    bool hasPrivatePureVirtuals = false;
+    for (const auto& meth : klass->methods()) {
+        if ((meth->isPure() && meth->isVirtual()) && meth->getAccess() == clang::AS_private) {
+            hasPrivatePureVirtuals = true;
+            break;
+        }
+    }
+
+    // abstract classes can't be instanstiated - remove the constructors
+    if (hasPrivatePureVirtuals) {
+        std::vector<clang::CXXConstructorDecl*> ctors(klass->ctor_begin(), klass->ctor_end());
+        for (const auto& ctor : ctors) {
+            klass->removeDecl(ctor);
+        }
+    }
+}
+
 void SmokeGenerator::insertTemplateParameters(const clang::QualType type) {
     const auto recordDecl = type->getAsCXXRecordDecl();
     if (!recordDecl) {

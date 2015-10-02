@@ -57,6 +57,8 @@ private:
 
     bool isClassUsed(const clang::CXXRecordDecl* klass) const;
 
+    void checkForAbstractClass(clang::CXXRecordDecl* klass) const;
+
     void insertTemplateParameters(const clang::QualType type);
 
     Options *options;
