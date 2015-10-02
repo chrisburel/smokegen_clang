@@ -6,7 +6,7 @@
 void SmokeGenerator::addClass(clang::CXXRecordDecl *D) {
     // Classes can be forward declared even after their primary declaration is
     // seen.  We always want the one with a definition, if it exists.
-    D = D->hasDefinition() ? D->getDefinition() : D;
+    D = D->hasDefinition() ? D->getDefinition() : D->getCanonicalDecl();
     classes[D->getQualifiedNameAsString()] = D;
 }
 
