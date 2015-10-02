@@ -27,10 +27,10 @@ void SmokeGenerator::addFunction(clang::FunctionDecl *D) {
 
 void SmokeGenerator::processDataStructures() {
     // QGlobalSpace holds global-level enums and functions.
-    clang::NamespaceDecl *qGlobalSpace = clang::NamespaceDecl::Create(
+    clang::NamespaceDecl *globalSpace = clang::NamespaceDecl::Create(
             *ctx, ctx->getTranslationUnitDecl(), false, clang::SourceLocation(), clang::SourceLocation(),
             &ctx->Idents.get("QGlobalSpace"), nullptr);
-    namespaces[qGlobalSpace->getQualifiedNameAsString()] = qGlobalSpace;
+    namespaces[globalSpace->getQualifiedNameAsString()] = globalSpace;
 
     for (auto const &klass : classes) {
         if (contains(options->classList, klass.first) && klass.second->hasDefinition()) {
@@ -45,17 +45,69 @@ void SmokeGenerator::processDataStructures() {
 
     // superclasses might be in different modules, still they need to be indexed for inheritanceList to work properly
     std::set<const clang::CXXRecordDecl*> superClasses;
-
     for (auto const &klass : classIndex) {
         includedClasses.push_back(klass.first);
     }
 
+    // add all functions as methods to a class called 'QGlobalSpace' or a class that represents a namespace
+    for (auto const & it : functions) {
+        const std::vector<clang::FunctionDecl *> fns = it.second;
+
+        std::string fnString = it.first;
+
+        for (auto fn : fns) {
+
+            bool isGlobalFunction = fn->getParent()->isTranslationUnit();
+
+            // functions in named namespaces are covered by the class list - only check for top-level functions here
+            if ((isGlobalFunction && (!options->functionNameIncluded(fn->getQualifiedNameAsString()) && !options->functionSignatureIncluded(fnString)))
+                || options->typeExcluded(fnString))
+            {
+                // we don't want that function...
+                continue;
+            }
+
+            clang::NamespaceDecl *parent = globalSpace;
+            clang::FunctionDecl *newFn;
+            if (isGlobalFunction) {
+                // QGlobalSpace is used, add it to the class index
+                classIndex[globalSpace->getQualifiedNameAsString()] = 1;
+
+                // Make a copy of this function decl inside the QGlobalSpace
+                // namespace
+                newFn = clang::FunctionDecl::Create(*ctx, parent,
+                    fn->getSourceRange().getBegin(),
+                    fn->getNameInfo().getLoc(), fn->getNameInfo().getName(),
+                    fn->getType(), fn->getTypeSourceInfo(),
+                    fn->getStorageClass(), fn->isInlineSpecified(),
+                    fn->hasWrittenPrototype(), fn->isConstexpr());
+                globalSpace->addDecl(newFn);
+                newFn->setParams(fn->parameters());
+            }
+            else {
+                parent = namespaces[clang::cast<clang::NamespaceDecl>(fn->getParent())->getQualifiedNameAsString()];
+                newFn = fn;
+            }
+
+            //if (isRepeating(parentModules, parent->name().toLatin1(), meth)) {
+            //    continue;
+            //}
+
+            //addOverloads(meth);
+
+            usedTypes.insert(newFn->getReturnType());
+            for (const auto & param : newFn->params())
+                usedTypes.insert(param->getType());
+        }
+    }
+
     // Get used types in class methods
     for (auto const &klassName : includedClasses) {
-        clang::CXXRecordDecl *klass = classes[klassName];
-        if (!klass) {
+        if (!classes.count(klassName)) {
+            // This names a namespace, not a class
             continue;
         }
+        clang::CXXRecordDecl *klass = classes[klassName];
 
         for (auto const & base : klass->bases()) {
             superClasses.insert(base.getType()->getAsCXXRecordDecl());
