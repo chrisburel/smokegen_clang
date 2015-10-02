@@ -5,6 +5,11 @@
 #include <string>
 #include <regex>
 
+struct FunctionMatchers {
+    std::vector<std::regex> names;
+    std::vector<std::regex> signatures;
+};
+
 struct Options {
     std::string outputDir;
     int parts;
@@ -18,7 +23,7 @@ struct Options {
     bool qtMode;
 
     std::vector<std::regex> excludeExpressions;
-    std::vector<std::regex> includeFunctionNames;
+    FunctionMatchers includeFunctions;
 };
 
 #endif
