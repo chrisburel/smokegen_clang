@@ -967,6 +967,10 @@ std::set<const clang::CXXRecordDecl *> SmokeGenerator::descendantsList(const cla
 }
 
 bool SmokeGenerator::canClassBeInstantiated(const clang::CXXRecordDecl *klass) const {
+    if (!klass->hasDefinition()) {
+        return false;
+    }
+
     bool ctorFound = false, publicCtorFound = false, privatePureVirtualsFound = false;
     for (auto const & ctor : klass->ctors()) {
         ctorFound = true;
