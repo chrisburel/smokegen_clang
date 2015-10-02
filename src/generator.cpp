@@ -243,6 +243,7 @@ void SmokeGenerator::processDataStructures() {
             if (setterArgType->getAsCXXRecordDecl() && !(options->qtMode && setterArgType->getAsCXXRecordDecl()->getNameAsString() == "QFlags")) {
                setterArgType = ctx->getLValueReferenceType(ctx->getConstType(setterArgType));
             }
+            usedTypes.insert(getCanonicalType(setterArgType));
 
             functionType = ctx->getFunctionType(ctx->VoidTy, llvm::makeArrayRef(setterArgType), clang::FunctionProtoType::ExtProtoInfo());
 
