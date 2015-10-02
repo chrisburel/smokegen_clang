@@ -46,4 +46,11 @@ std::string getFullFunctionPrototype(const clang::FunctionDecl *d, const clang::
     return name;
 }
 
+clang::QualType getCanonicalType(const clang::QualType &type) {
+    if (dereferenced(type).getAsString() == "FILE") {
+        return type;
+    }
+    return type.getCanonicalType();
+}
+
 #endif

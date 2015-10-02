@@ -102,9 +102,10 @@ void SmokeGenerator::processDataStructures() {
 
             //addOverloads(meth);
 
-            usedTypes.insert(newFn->getReturnType().getCanonicalType());
-            for (const auto & param : newFn->params())
-                usedTypes.insert(param->getType().getCanonicalType());
+            usedTypes.insert(getCanonicalType(newFn->getReturnType()));
+            for (const auto & param : newFn->params()) {
+                usedTypes.insert(getCanonicalType(param->getType()));
+            }
         }
     }
 
@@ -148,16 +149,16 @@ void SmokeGenerator::processDataStructures() {
             globalSpace->addDecl(newEnum);
 
             e = newEnum;
-            usedTypes.insert(clang::QualType(e->getTypeForDecl(), 0).getCanonicalType());
+            usedTypes.insert(getCanonicalType(clang::QualType(e->getTypeForDecl(), 0)));
         }
         else {
             if (auto parent = clang::dyn_cast<clang::CXXRecordDecl>(e->getParent())) {
                 if (contains(options->classList, parent->getQualifiedNameAsString())) {
-                    usedTypes.insert(clang::QualType(e->getTypeForDecl(), 0).getCanonicalType());
+                    usedTypes.insert(getCanonicalType(clang::QualType(e->getTypeForDecl(), 0)));
                 }
             }
             else {
-                usedTypes.insert(clang::QualType(e->getTypeForDecl(), 0).getCanonicalType());
+                usedTypes.insert(getCanonicalType(clang::QualType(e->getTypeForDecl(), 0)));
             }
         }
     }
@@ -189,7 +190,7 @@ void SmokeGenerator::processDataStructures() {
             if (options->typeExcluded(field->getQualifiedNameAsString())) {
                 continue;
             }
-            usedTypes.insert(field->getType().getCanonicalType());
+            usedTypes.insert(getCanonicalType(getterReturnType));
 
             // Set name
             clang::DeclarationName Name = ctx->DeclarationNames.getIdentifier(&ctx->Idents.get(field->getName()));
@@ -248,15 +249,15 @@ void SmokeGenerator::processDataStructures() {
             if (method->getKind() == clang::Decl::CXXConstructor) {
                 // clang reports constructors as returning void.  According to
                 // smoke, they return a pointer to the class.
-                usedTypes.insert(ptrToThisClassType.getCanonicalType());
+                usedTypes.insert(getCanonicalType(ptrToThisClassType));
             }
             else {
-                usedTypes.insert(method->getReturnType().getCanonicalType());
+                usedTypes.insert(getCanonicalType(method->getReturnType()));
             }
 
             // Add the types from the parameters of this method
             for (auto const &param : method->params()) {
-                usedTypes.insert(param->getType().getCanonicalType());
+                usedTypes.insert(getCanonicalType(param->getType()));
             }
         }
     }
@@ -595,7 +596,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
             std::vector<int> indices(meth->getNumParams());
             for (int i = 0; i < meth->getNumParams(); ++i) {
                 auto param = meth->getParamDecl(i);
-                auto t = param->getType().getCanonicalType();
+                auto t = getCanonicalType(param->getType());
                 if (!typeIndex.count(t)) {
                     llvm::outs() << "missing type: " << t.getAsString() << " in method " << meth->getNameAsString() << " (while building munged names map)\n";
                 }
@@ -753,7 +754,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
 
             out << flags;
 
-            clang::QualType retType = meth->getReturnType().getCanonicalType();
+            clang::QualType retType = getCanonicalType(meth->getReturnType());
             if (asCtor)
                 retType = ctx->getPointerType(clang::QualType(klass->getTypeForDecl(), 0));
 
