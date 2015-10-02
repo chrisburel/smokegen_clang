@@ -170,7 +170,12 @@ void SmokeGenerator::processDataStructures() {
 
         auto ptrToThisClassType = ctx->getPointerType(clang::QualType(klass->getTypeForDecl(), 0));
 
-        for (auto const &field : klass->fields()) {
+        std::vector<clang::DeclaratorDecl *> fields;
+        fields.insert(fields.end(), klass->field_begin(), klass->field_end());
+        auto vars = var_range(var_iterator(klass->decls_begin()), var_iterator(klass->decls_end()));
+        fields.insert(fields.end(), vars.begin(), vars.end());
+
+        for (auto const &field : fields) {
             if (field->getAccess() == clang::AS_private) {
                 continue;
             }

@@ -95,7 +95,7 @@ private:
 
     // Stores the relationship between a manually created method for a field
     // accessor, and the field it accesses.
-    std::map<const clang::CXXMethodDecl *, const clang::FieldDecl *> fieldAccessors;
+    std::map<const clang::CXXMethodDecl *, const clang::DeclaratorDecl *> fieldAccessors;
 
     clang::CompilerInstance &ci;
 };

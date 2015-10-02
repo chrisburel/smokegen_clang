@@ -6,6 +6,9 @@
 typedef clang::CapturedDecl::specific_decl_iterator<clang::FunctionDecl> function_iterator;
 typedef llvm::iterator_range<function_iterator> function_range;
 
+typedef clang::CapturedDecl::specific_decl_iterator<clang::VarDecl> var_iterator;
+typedef llvm::iterator_range<var_iterator> var_range;
+
 template <class T>
 bool contains(const std::vector<T> &vec, const T &value)
 {
