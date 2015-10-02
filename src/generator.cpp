@@ -1088,7 +1088,6 @@ bool SmokeGenerator::hasTypeNonPublicParts(const clang::QualType &type) const {
 }
 
 std::string SmokeGenerator::getTypeFlags(const clang::QualType &t, int *classIdx) const {
-    auto tname = t.getAsString();
     clang::QualType noPointerType = dereferenced(t);
     auto D = noPointerType->getAsCXXRecordDecl();
 
