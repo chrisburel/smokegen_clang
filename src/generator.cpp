@@ -1143,7 +1143,9 @@ std::string SmokeGenerator::getTypeFlags(clang::QualType t, int *classIdx) const
         else if (typeName.substr(0, 7) == "signed ") {
             typeName = typeName.substr(7, typeName.size());
         }
-        //typeName = Util::typeMap.value(typeName, typeName);
+        if (options->typeMap.count(typeName)) {
+            typeName = options->typeMap[typeName];
+        }
         if (_unsigned)
             typeName = "u" + typeName;
 
