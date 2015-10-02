@@ -207,7 +207,6 @@ void SmokeGenerator::processDataStructures() {
 
     // if a class is used somewhere but not listed in the class list, mark it external
     for (auto const & iter : classes) {
-        if (!iter.second) continue;
         if (isTemplate(iter.second) || contains(options->voidpTypes, iter.first))
             continue;
 
@@ -392,7 +391,9 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     out << "// Those are the xcall functions defined in each x_*.cpp file, for dispatching method calls\n";
     for (auto const &iter : classIndex) {
         auto const &klass = classes[iter.first];
-        if (klass && (externalClasses.count(klass) || isTemplate(klass)))
+        auto const &nspace = namespaces[iter.first];
+        if ((klass && (externalClasses.count(klass) || isTemplate(klass))) ||
+            (nspace && externalClasses.count(nspace)))
             continue;
 
         std::string smokeClassName = iter.first;
@@ -476,37 +477,56 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     out << "    0,\t//0  (void)\n";
 
     std::map<std::vector<int>, int> parameterList;
-    std::map<const clang::CXXMethodDecl*, int> parameterIndices;
+    std::map<const clang::FunctionDecl*, int> parameterIndices;
 
     // munged name => index
     std::map<std::string, int> methodNames;
     // class => list of munged names with possible methods or enum members
-    std::map<const clang::CXXRecordDecl*, std::map<std::string, std::vector<const clang::ValueDecl*> > > classMungedNames;
+    std::map<const clang::NamedDecl*, std::map<std::string, std::vector<const clang::ValueDecl*> > > classMungedNames;
 
     currentIdx = 1;
     for (auto const & iter : classIndex) {
         auto klass = classes[iter.first];
-        if (!klass)
-            continue;
-        bool isExternal = externalClasses.count(klass);
+        auto nspace = namespaces[iter.first];
+
+        bool isExternal;
+        if (klass)
+            isExternal = externalClasses.count(klass);
+        else if (nspace)
+            isExternal = externalClasses.count(nspace);
+
         //bool isDeclaredVirtual = declaredVirtualMethods.contains(klass);
         bool isDeclaredVirtual = false;
         if (isExternal && !isDeclaredVirtual)
             continue;
-        std::map<std::string, std::vector<const clang::ValueDecl*> >& map = classMungedNames[klass];
-        for (auto const & meth : klass->methods()) {
+        std::map<std::string, std::vector<const clang::ValueDecl*> >* map = 0;
+        if (klass) {
+            map = &classMungedNames[klass];
+        }
+        else if (nspace) {
+            map = &classMungedNames[nspace];
+        }
+        std::vector<const clang::FunctionDecl *> methods;
+        if (klass) {
+            methods.insert(methods.end(), klass->method_begin(), klass->method_end());
+        }
+        else if (nspace) {
+            methods.insert(methods.end(), function_iterator(nspace->decls_begin()), function_iterator(nspace->decls_end()));
+        }
+
+        for (const auto & meth : methods) {
             if (meth->getAccess() == clang::AS_private)
                 continue;
             if (isExternal && !isDeclaredVirtual)
                 continue;
-            if (meth->isCopyAssignmentOperator() && meth->isImplicit())
+            if (clang::isa<clang::CXXMethodDecl>(meth) && clang::cast<clang::CXXMethodDecl>(meth)->isCopyAssignmentOperator() && meth->isImplicit())
                 continue;
 
             methodNames[meth->getNameAsString()] = 1;
             if (!isExternal) {
                 auto munged = mungedName(meth);
                 methodNames[munged] = 1;
-                map[munged].push_back(meth);
+                (*map)[munged].push_back(meth);
             }
 
             if (!meth->getNumParams()) {
@@ -544,7 +564,8 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
             }
             parameterIndices[meth] = idx;
         }
-        for (auto const & decl : klass->decls()) {
+        const auto childDecls = klass ? klass->decls() : nspace->decls();
+        for (auto const & decl : childDecls) {
             const clang::EnumDecl* e = 0;
             if ((clang::isa<clang::EnumDecl>(decl))) {
                 e = clang::cast<clang::EnumDecl>(decl);
@@ -552,7 +573,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
                     continue;
                 for (auto const & member : e->enumerators()) {
                     methodNames[member->getName()] = 1;
-                    map[member->getName()].push_back(member);
+                    (*map)[member->getName()].push_back(member);
                 }
             }
         }
@@ -578,20 +599,31 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     int methodCount = 1;
     for (auto const & iter : classIndex) {
         clang::CXXRecordDecl* klass = classes[iter.first];
-        if (!klass)
-            continue;
+        clang::NamespaceDecl* nspace = namespaces[iter.first];
 
-        const clang::CXXDestructorDecl *destructor = klass->getDestructor();
+        const clang::CXXDestructorDecl *destructor = nullptr;
+        std::vector<const clang::CXXMethodDecl*> virtualMethods;
+        if (klass) {
+            destructor = klass->getDestructor();
+            const auto vmeths = virtualMethodsForClass(klass);
+            virtualMethods.insert(virtualMethods.begin(), vmeths.begin(), vmeths.end());
+        }
+
         bool isExternal = false;
-        if (externalClasses.count(klass))
+        if (externalClasses.count(klass) || externalClasses.count(nspace))
             isExternal = true;
         if (isExternal /*&& !declaredVirtualMethods.contains(klass)*/)
             continue;
 
-        const std::vector<const clang::CXXMethodDecl*> virtualMethods = virtualMethodsForClass(klass);
-
         int xcall_index = 1;
-        for (auto const &meth : klass->methods()) {
+        std::vector<const clang::FunctionDecl *> methods;
+        if (klass) {
+            methods.insert(methods.end(), klass->method_begin(), klass->method_end());
+        }
+        else if (nspace) {
+            methods.insert(methods.end(), function_iterator(nspace->decls_begin()), function_iterator(nspace->decls_end()));
+        }
+        for (auto const &meth : methods) {
             if (isExternal /*&& !declaredVirtualMethods[klass].contains(&meth)*/)
                 continue;
             if (meth->getAccess() == clang::AS_private)
@@ -599,6 +631,9 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
             if (meth == destructor) {
                 continue;
             }
+            if (clang::isa<clang::CXXMethodDecl>(meth) && clang::cast<clang::CXXMethodDecl>(meth)->isCopyAssignmentOperator() && meth->isImplicit())
+                continue;
+
             out << "    {" << iter.second << ", " << methodNames[meth->getNameAsString()] << ", ";
             int numArgs = meth->getNumParams();
             if (numArgs) {
@@ -607,15 +642,20 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
                 out << "0, 0, ";
             }
 
-            clang::CXXConstructorDecl * asCtor = 0;
-            if (meth->getDeclKind() == clang::Decl::CXXConstructor)
-                asCtor = clang::cast<clang::CXXConstructorDecl>(meth);
+            const clang::CXXConstructorDecl * asCtor = clang::dyn_cast<clang::CXXConstructorDecl>(meth);
+            const clang::CXXMethodDecl * asMethod = clang::dyn_cast<clang::CXXMethodDecl>(meth);
 
             std::string flags;
-            if (meth->isConst())
-                flags += "Smoke::mf_const|";
-            if (meth->isStatic())
+            if (asMethod) {
+                if (asMethod->isConst())
+                    flags += "Smoke::mf_const|";
+                if (asMethod->isStatic())
+                    flags += "Smoke::mf_static|";
+            }
+            else {
+                // All functions are static
                 flags += "Smoke::mf_static|";
+            }
             if (asCtor) {
                 flags += "Smoke::mf_ctor|";
                 if (asCtor->isExplicit())
@@ -625,16 +665,16 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
                 flags += "Smoke::mf_protected|";
             if (asCtor && asCtor->isCopyConstructor())
                 flags += "Smoke::mf_copyctor|";
-            if (fieldAccessors.count(meth))
+            if (fieldAccessors.count(asMethod))
                 flags += "Smoke::mf_attribute|";
         //    if (meth->isQPropertyAccessor())
         //        flags += "Smoke::mf_property|";
 
             // Simply checking for flags() & Method::Virtual won't be enough, because methods can override virtuals without being
             // declared 'virtual' themselves (and they're still virtual, then).
-            if (contains(virtualMethods, const_cast<const clang::CXXMethodDecl *>(meth)))
+            if (asMethod && contains(virtualMethods, const_cast<const clang::CXXMethodDecl *>(asMethod)))
                 flags += "Smoke::mf_virtual|";
-            if (meth->isVirtual() && meth->isPure())
+            if (asMethod && asMethod->isVirtual() && asMethod && asMethod->isPure())
                 flags += "Smoke::mf_purevirtual|";
 
             for (auto attr_it = meth->specific_attr_begin<clang::AnnotateAttr>();
@@ -674,10 +714,12 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
                 out << meth->getParamDecl(j)->getType().getAsString();
             }
             out << ')';
-            if (meth->isConst())
-                out << " const";
-            if (meth->isPure() && meth->isVirtual())
-                out << " [pure virtual]";
+            if (asMethod) {
+                if ( asMethod->isConst())
+                    out << " const";
+                if (asMethod->isPure() && asMethod->isVirtual())
+                    out << " [pure virtual]";
+            }
             out << "\n";
             methodIdx[meth] = i;
             xcall_index++;
@@ -685,7 +727,13 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
             methodCount++;
         }
         // enums
-        for (clang::Decl *decl : klass->decls()) {
+        clang::DeclContext *context;
+        if (klass)
+            context = klass;
+        else if (nspace)
+            context = nspace;
+
+        for (clang::Decl *decl : context->decls()) {
             if (auto e = clang::dyn_cast<clang::EnumDecl>(decl)) {
                 if (e->getAccess() == clang::AS_private)
                     continue;
@@ -733,18 +781,18 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     out << "static Smoke::Index ambiguousMethodList[] = {\n";
     out << "    0,\n";
 
-    std::map<const clang::CXXRecordDecl*, std::map<std::string, int> > ambigiousIds;
+    std::map<const clang::NamedDecl*, std::map<std::string, int> > ambigiousIds;
     i = 1;
     // ambigious method list
     for (auto const & iter : classMungedNames) {
-        const clang::CXXRecordDecl* klass = iter.first;
+        const clang::NamedDecl* klass = iter.first;
         const std::map<std::string, std::vector<const clang::ValueDecl*> >& map = iter.second;
 
         for (auto const & munged_it : map) {
             if (munged_it.second.size() < 2)
                 continue;
             for (const clang::ValueDecl* value : munged_it.second) {
-                if (auto meth = clang::dyn_cast<clang::CXXMethodDecl>(value)) {
+                if (auto meth = clang::dyn_cast<clang::FunctionDecl>(value)) {
                     out << "    " << methodIdx[meth] << ',';
 
                     // comment
@@ -755,7 +803,8 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
                         out << meth->getParamDecl(j)->getType().getAsString();
                     }
                     out << ')';
-                    if (meth->isConst()) out << " const";
+                    if (auto method = clang::dyn_cast<clang::CXXMethodDecl>(meth))
+                       if (method->isConst()) out << " const";
                 }
                 out << "\n";
             }
@@ -773,31 +822,36 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
 
     for (auto const & iter : classIndex) {
         clang::CXXRecordDecl *klass = classes[iter.first];
-        if (!klass)
+        clang::NamespaceDecl *nspace = namespaces[iter.first];
+        clang::NamedDecl *base = klass ? (clang::NamedDecl*)klass : (clang::NamedDecl*)nspace;
+
+        if (externalClasses.count(klass) || externalClasses.count(nspace))
             continue;
 
-        if (externalClasses.count(klass))
-            continue;
-
-        auto const & map = classMungedNames[klass];
-        for (auto const & munged_it : map) {
-
+        std::map<std::string, std::vector<const clang::ValueDecl*> >* map = 0;
+        if (klass){
+            map = &classMungedNames[klass];
+        }
+        else if (nspace) {
+            map = &classMungedNames[nspace];
+        }
+        for (auto const & munged_it : *map) {
             // class index, munged name index
             out << "    {" << classIndex[iter.first] << ", " << methodNames[munged_it.first] << ", ";
 
             // if there's only one matching method for this class and the munged name, insert the index into methodss
             if (munged_it.second.size() == 1) {
-                if (auto meth = clang::dyn_cast<clang::CXXMethodDecl>(munged_it.second[0]))
+                if (auto meth = clang::dyn_cast<clang::FunctionDecl>(munged_it.second[0]))
                     out << methodIdx[meth];
                 else if (auto enumDecl = clang::dyn_cast<clang::EnumConstantDecl>(munged_it.second[0]))
                     out << enumIdx[enumDecl];
             } else {
                 // negative index into ambigious methods list
-                out << '-' << ambigiousIds[klass][munged_it.first];
+                out << '-' << ambigiousIds[base][munged_it.first];
             }
             out << "},";
             // comment
-            out << "\t// " << klass->getQualifiedNameAsString() << "::" << munged_it.first;
+            out << "\t// " << base->getQualifiedNameAsString() << "::" << munged_it.first;
             out << "\n";
             methodMapCount++;
         }
@@ -818,7 +872,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     out << "    if (initialized) return;\n";
     out << "    " << options->module << "_Smoke = new Smoke(\n";
     out << "        \"" << options->module << "\",\n";
-    out << "        " << smokeNamespaceName << "::classes, " << includedClasses.size() <<  ",\n";
+    out << "        " << smokeNamespaceName << "::classes, " << classIndex.size() <<  ",\n";
     out << "        " << smokeNamespaceName << "::methods, " << methodCount << ",\n";
     out << "        " << smokeNamespaceName << "::methodMaps, " << methodMapCount << ",\n";
     out << "        " << smokeNamespaceName << "::methodNames, " << methodNames.size() << ",\n";
@@ -992,15 +1046,12 @@ std::string SmokeGenerator::getTypeFlags(const clang::QualType &t, int *classIdx
             *classIdx = classIndex.at("QGlobalSpace");
         }
         auto parent = tag->getParent();
-        if (clang::isa<clang::TagDecl>(parent)) {
-            auto parentTagDecl = clang::cast<clang::TagDecl>(parent);
-            *classIdx = classIndex.at(parentTagDecl->getQualifiedNameAsString());
+        auto parentDecl = clang::cast<clang::NamedDecl>(parent);
+        if (classIndex.count(parentDecl->getQualifiedNameAsString())) {
+            *classIdx = classIndex.at(parentDecl->getQualifiedNameAsString());
         }
-        else if (clang::isa<clang::NamespaceDecl>(parent)) {
-            auto parentNamespaceDecl = clang::cast<clang::NamespaceDecl>(parent);
-            if (classIndex.count(parentNamespaceDecl->getQualifiedNameAsString())) {
-                *classIdx = classIndex.at(parentNamespaceDecl->getQualifiedNameAsString());
-            }
+        else if (clang::isa<clang::TranslationUnitDecl>(parent)) {
+            *classIdx = classIndex.at("QGlobalSpace");
         }
     } else {
         flags += "Smoke::t_voidp|";
@@ -1021,7 +1072,7 @@ std::string SmokeGenerator::getTypeFlags(const clang::QualType &t, int *classIdx
     return flags;
 }
 
-std::string SmokeGenerator::mungedName(clang::FunctionDecl *D) const {
+std::string SmokeGenerator::mungedName(const clang::FunctionDecl *D) const {
     std::string name = D->getNameAsString();
     for (auto param : D->params()) {
         auto type = param->getType();

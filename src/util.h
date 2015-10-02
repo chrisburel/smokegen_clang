@@ -3,6 +3,9 @@
 
 #include <clang/AST/DeclTemplate.h>
 
+typedef clang::CapturedDecl::specific_decl_iterator<clang::FunctionDecl> function_iterator;
+typedef llvm::iterator_range<function_iterator> function_range;
+
 template <class T>
 bool contains(const std::vector<T> &vec, const T &value)
 {
@@ -24,7 +27,7 @@ clang::QualType dereferenced(const clang::QualType &type) {
     return dereferenced;
 }
 
-std::string getFullFunctionPrototype(clang::FunctionDecl *d, const clang::PrintingPolicy &policy) {
+std::string getFullFunctionPrototype(const clang::FunctionDecl *d, const clang::PrintingPolicy &policy) {
     // Use getAsStringInternal to inject the function name into the string that
     // FunctionProtoType.getAsString() returns.
     auto name = d->getQualifiedNameAsString();

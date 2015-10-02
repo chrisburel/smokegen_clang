@@ -48,7 +48,7 @@ private:
 
     std::string getTypeFlags(const clang::QualType &t, int *classIdx) const;
 
-    std::string mungedName(clang::FunctionDecl *D) const;
+    std::string mungedName(const clang::FunctionDecl *D) const;
     char munge(clang::QualType T) const;
 
     std::vector<const clang::CXXMethodDecl *> virtualMethodsForClass(const clang::CXXRecordDecl *klass) const;
@@ -73,7 +73,7 @@ private:
     std::map<std::string, int> classIndex;
 
     // The index of a specific method in the methods array
-    std::map<const clang::CXXMethodDecl *, int> methodIdx;
+    std::map<const clang::FunctionDecl *, int> methodIdx;
     std::map<const clang::EnumConstantDecl *, int> enumIdx;
 
     // The index of a specific type in the types array
