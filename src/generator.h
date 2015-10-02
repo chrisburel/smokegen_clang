@@ -60,7 +60,7 @@ private:
     std::map<std::string, clang::EnumDecl *> enums;
     std::map<std::string, clang::NamespaceDecl *> namespaces;
     // A list of functions that are not methods.
-    std::map<std::string, clang::FunctionDecl *> functions;
+    std::map<std::string, std::vector<clang::FunctionDecl *> > functions;
 
     // Stores the class index of each class, as it appears in the classes list
     // in the data file.  Classes are added to it, and as a final step we

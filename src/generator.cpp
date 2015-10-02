@@ -19,7 +19,10 @@ void SmokeGenerator::addNamespace(clang::NamespaceDecl *D) {
 }
 
 void SmokeGenerator::addFunction(clang::FunctionDecl *D) {
-    functions[D->getQualifiedNameAsString()] = D;
+    const auto proto = getFullFunctionPrototype(D, pp());
+    D = D->getCanonicalDecl();
+    if (!contains(functions[proto], D))
+        functions[proto].push_back(D);
 }
 
 void SmokeGenerator::processDataStructures() {
