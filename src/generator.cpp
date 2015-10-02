@@ -234,8 +234,12 @@ void SmokeGenerator::processDataStructures() {
             setterName = "set" + setterName;
             Name = ctx->DeclarationNames.getIdentifier(&ctx->Idents.get(setterName));
             NameInfo = clang::DeclarationNameInfo(Name, FieldLoc);
+            auto setterArgType = field->getType();
+            if (setterArgType->getAsCXXRecordDecl() && !(options->qtMode && setterArgType->getAsCXXRecordDecl()->getNameAsString() == "QFlags")) {
+               setterArgType = ctx->getLValueReferenceType(ctx->getConstType(setterArgType));
+            }
 
-            functionType = ctx->getFunctionType(ctx->VoidTy, llvm::makeArrayRef(field->getType()), clang::FunctionProtoType::ExtProtoInfo());
+            functionType = ctx->getFunctionType(ctx->VoidTy, llvm::makeArrayRef(setterArgType), clang::FunctionProtoType::ExtProtoInfo());
 
             method = clang::CXXMethodDecl::Create(*ctx, klass, FieldLoc,
                     NameInfo, functionType,
@@ -243,7 +247,7 @@ void SmokeGenerator::processDataStructures() {
                     /*isInline=*/true, /*isConst=*/false, FieldLoc);
 
             clang::ParmVarDecl *newValueArg = clang::ParmVarDecl::Create(*ctx, method, FieldLoc, FieldLoc,
-                    /*IdentifierInfo=*/nullptr, field->getType(), /*TInfo=*/nullptr, /*StorageClass=*/clang::SC_None, /*DefArg=*/nullptr);
+                    /*IdentifierInfo=*/nullptr, setterArgType, /*TInfo=*/nullptr, /*StorageClass=*/clang::SC_None, /*DefArg=*/nullptr);
             method->setParams(llvm::makeArrayRef(newValueArg));
 
             klass->addDecl(method);
