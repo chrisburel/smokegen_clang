@@ -171,6 +171,13 @@ void SmokeGenerator::processDataStructures() {
         auto ptrToThisClassType = ctx->getPointerType(clang::QualType(klass->getTypeForDecl(), 0));
 
         for (auto const &field : klass->fields()) {
+            if (field->getAccess() == clang::AS_private) {
+                continue;
+            }
+
+            if (options->typeExcluded(field->getQualifiedNameAsString())) {
+                continue;
+            }
             // Set name
             clang::DeclarationName Name = ctx->DeclarationNames.getIdentifier(&ctx->Idents.get(field->getName()));
             clang::SourceLocation FieldLoc = field->getLocation();
