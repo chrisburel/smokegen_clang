@@ -50,7 +50,9 @@ clang::QualType getCanonicalType(const clang::QualType &type) {
     if (dereferenced(type).getAsString() == "FILE") {
         return type;
     }
-    return type.getCanonicalType();
+    auto canonicalType = type.getCanonicalType();
+    canonicalType.removeLocalRestrict();
+    return canonicalType;
 }
 
 #endif
