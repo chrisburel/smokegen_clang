@@ -203,7 +203,7 @@ void SmokeGenerator::processDataStructures() {
             clang::QualType getterReturnType = field->getType();
             if (getterReturnType->getAsCXXRecordDecl()) {
                 // Skip anonymous structs
-                if (!getterReturnType->getAsCXXRecordDecl()->isAnonymousStructOrUnion()) {
+                if (!getterReturnType->getAsCXXRecordDecl()->getDeclName()) {
                     continue;
                 }
                 if (!(options->qtMode && getterReturnType->getAsCXXRecordDecl()->getNameAsString() == "QFlags")) {
