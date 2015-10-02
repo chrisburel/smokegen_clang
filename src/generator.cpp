@@ -1093,7 +1093,7 @@ std::string SmokeGenerator::getTypeFlags(const clang::QualType &t, int *classIdx
     auto D = noPointerType->getAsCXXRecordDecl();
 
     std::string flags;
-    if (contains(options->voidpTypes, t.getAsString())) {
+    if (contains(options->voidpTypes, dereferenced(t).getUnqualifiedType().getAsString(pp()))) {
         // support some of the weird quirks the kalyptus code has
         flags += "Smoke::t_voidp|";
     } else if (D) {
