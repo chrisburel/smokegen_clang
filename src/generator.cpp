@@ -271,6 +271,8 @@ void SmokeGenerator::processDataStructures() {
             if (method->isCopyAssignmentOperator() && method->isImplicit())
                 continue;
 
+            addOverloads(method);
+
             if (method->getKind() == clang::Decl::CXXConstructor) {
                 // clang reports constructors as returning void.  According to
                 // smoke, they return a pointer to the class.
@@ -1343,4 +1345,71 @@ void SmokeGenerator::insertTemplateParameters(const clang::QualType type) {
         usedTypes.insert(getCanonicalType(arg.getAsType()));
         insertTemplateParameters(getCanonicalType(arg.getAsType()));
     }
+}
+
+std::vector<clang::FunctionDecl*> SmokeGenerator::addOverloads(clang::CXXMethodDecl* method) const {
+    clang::CXXRecordDecl* klass = method->getParent();
+    std::vector<clang::FunctionDecl*> createdFunctions;
+
+    // Get a list of all parameters to this function
+    std::vector<clang::ParmVarDecl*> params;
+    params.insert(params.begin(), method->param_begin(), method->param_end());
+
+    std::vector<clang::QualType> paramTypes;
+    for (const auto& p : params) {
+        paramTypes.push_back(p->getType());
+    }
+
+    while(params.size()) {
+        // Check to see if the last parameter has a default argument
+        auto lastParam = params.back();
+        paramTypes.pop_back();
+        clang::Expr* defaultArgument = lastParam->getDefaultArg();
+
+        // done with lastParam
+        lastParam = nullptr;
+        params.pop_back();
+
+        // We've reached the last parameter with a default value.  We're done
+        // adding overloads.
+        if (!defaultArgument) {
+            break;
+        }
+
+        // Make a new method with the latest parameter with a default argument
+        // removed.
+        clang::DeclarationName Name = method->getDeclName();
+        clang::SourceLocation Loc = method->getLocation();
+        clang::DeclarationNameInfo NameInfo(Name, Loc);
+
+        // Make the underlying function type
+        clang::QualType functionType = ctx->getFunctionType(
+            method->getReturnType(),
+            llvm::makeArrayRef<clang::QualType>(paramTypes),
+            method->getType()->getAs<clang::FunctionProtoType>()->getExtProtoInfo()
+        );
+
+        // Make the method instance
+        clang::CXXMethodDecl* newMethod = clang::CXXMethodDecl::Create(
+            *ctx,
+            klass,
+            Loc,
+            NameInfo,
+            functionType,
+            /*TInfo=*/nullptr,
+            /*StorageClass=*/clang::SC_None,
+            /*isInline=*/true,
+            /*isConst=*/method->isConst(),
+            Loc
+        );
+
+        newMethod->setParams(llvm::makeArrayRef(params));
+
+        createdFunctions.push_back(newMethod);
+    }
+    for (auto fn = createdFunctions.rbegin(); fn < createdFunctions.rend(); ++fn) {
+        // Add the method to the class
+        klass->addDecl(*fn);
+    }
+    return createdFunctions;
 }

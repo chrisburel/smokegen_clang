@@ -61,6 +61,8 @@ private:
 
     void insertTemplateParameters(const clang::QualType type);
 
+    std::vector<clang::FunctionDecl*> addOverloads(clang::CXXMethodDecl* method) const;
+
     Options *options;
 
     // All classes, enums, and namespaces found while reading the header files.
