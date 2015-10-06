@@ -1213,7 +1213,7 @@ std::string SmokeGenerator::mungedName(const clang::FunctionDecl *D) const {
     std::string name = D->getNameAsString();
     for (auto param : D->params()) {
         auto type = param->getType();
-        name += munge(type);
+        name += munge(getCanonicalType(type));
     }
     return name;
 }
