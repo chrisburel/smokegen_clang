@@ -1223,20 +1223,23 @@ char SmokeGenerator::munge(clang::QualType type) const {
         const auto& fn = type->getPointeeType()->getAs<clang::FunctionType>();
         type = fn->getReturnType();
     }
-    type = dereferenced(type);
+    const auto deref = dereferenced(type).getLocalUnqualifiedType();
+    const auto klass = deref->getAsCXXRecordDecl();
 
     if ((type->isPointerType() && type->getPointeeType()->isPointerType()) ||
-        // (type->getClass() && type->getClass()->isTemplate() && (!Options::qtMode || (Options::qtMode && type->getClass()->name() != "QFlags"))) ||
-        (contains(options->voidpTypes, type.getAsString()) && !contains(options->scalarTypes, type.getAsString()))) {
+        (klass && isTemplate(klass) && (!options->qtMode || (options->qtMode && klass->getNameAsString() != "QFlags"))) ||
+        (contains(options->voidpTypes, deref.getAsString(pp())) && !contains(options->scalarTypes, deref.getAsString(pp())))) {
 
         // reference to array or hash or unknown
         return '?';
     }
-    if (type->isBuiltinType() || type->isEnumeralType() || contains(options->scalarTypes, type.getAsString())) {
+    if (deref->isBuiltinType() || deref->isEnumeralType() || contains(options->scalarTypes, deref.getAsString(pp())) ||
+         (options->qtMode && !type->isReferenceType() && !type->isPointerType() &&
+         (klass && isTemplate(klass) && klass->getNameAsString() == "QFlags"))) {
         // plain scalar
         return '$';
     }
-    else if (type->isObjectType() || (type->isPointerType() && type->getPointeeType()->isObjectType())) {
+    else if (deref->isObjectType()) {
         // object
         return '#';
     }
