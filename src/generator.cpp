@@ -350,7 +350,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
             auto className = base->getQualifiedNameAsString();
 
             if (contains(includedClasses, className)) {
-                int index = classIndex[className];
+                int index = classIndex.at(className);
                 if (indices.count(index))
                     continue;
 
@@ -365,7 +365,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
             auto className = desc->getQualifiedNameAsString();
 
             if (contains(includedClasses, className)) {
-                int index = classIndex[className];
+                int index = classIndex.at(className);
                 if (indices.count(index))
                     continue;
 
@@ -417,7 +417,12 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
             if (base.getType()->getAsCXXRecordDecl()->getAccess() == clang::AS_private)
                 continue;
             auto className = base.getType()->getAsCXXRecordDecl()->getQualifiedNameAsString();
-            indices.push_back(classIndex[className]);
+            if (classIndex.count(className)) {
+                indices.push_back(classIndex.at(className));
+            }
+            else {
+                indices.push_back(0);
+            }
             comment += className + ", ";
         }
         if (indices.size() == 0)
@@ -936,7 +941,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
         }
         for (auto const & munged_it : *map) {
             // class index, munged name index
-            out << "    {" << classIndex[iter.first] << ", " << methodNames[munged_it.first] << ", ";
+            out << "    {" << classIndex.at(iter.first) << ", " << methodNames[munged_it.first] << ", ";
 
             // if there's only one matching method for this class and the munged name, insert the index into methodss
             if (munged_it.second.size() == 1) {
