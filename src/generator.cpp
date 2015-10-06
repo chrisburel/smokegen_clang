@@ -108,7 +108,7 @@ void SmokeGenerator::processDataStructures() {
             //    continue;
             //}
 
-            //addOverloads(meth);
+            addOverloads(newFn);
 
             usedTypes.insert(getCanonicalType(newFn->getReturnType()));
             for (const auto & param : newFn->params()) {
@@ -1389,13 +1389,13 @@ void SmokeGenerator::insertTemplateParameters(const clang::QualType type) {
     }
 }
 
-std::vector<clang::FunctionDecl*> SmokeGenerator::addOverloads(clang::CXXMethodDecl* method) const {
-    clang::CXXRecordDecl* klass = method->getParent();
+std::vector<clang::FunctionDecl*> SmokeGenerator::addOverloads(clang::FunctionDecl* function) const {
+    clang::DeclContext* parent = function->getParent();
     std::vector<clang::FunctionDecl*> createdFunctions;
 
     // Get a list of all parameters to this function
     std::vector<clang::ParmVarDecl*> params;
-    params.insert(params.begin(), method->param_begin(), method->param_end());
+    params.insert(params.begin(), function->param_begin(), function->param_end());
 
     std::vector<clang::QualType> paramTypes;
     for (const auto& p : params) {
@@ -1418,40 +1418,57 @@ std::vector<clang::FunctionDecl*> SmokeGenerator::addOverloads(clang::CXXMethodD
             break;
         }
 
-        // Make a new method with the latest parameter with a default argument
+        // Make a new function with the latest parameter with a default argument
         // removed.
-        clang::DeclarationName Name = method->getDeclName();
-        clang::SourceLocation Loc = method->getLocation();
+        clang::DeclarationName Name = function->getDeclName();
+        clang::SourceLocation Loc = function->getLocation();
         clang::DeclarationNameInfo NameInfo(Name, Loc);
 
         // Make the underlying function type
         clang::QualType functionType = ctx->getFunctionType(
-            method->getReturnType(),
+            function->getReturnType(),
             llvm::makeArrayRef<clang::QualType>(paramTypes),
-            method->getType()->getAs<clang::FunctionProtoType>()->getExtProtoInfo()
+            function->getType()->getAs<clang::FunctionProtoType>()->getExtProtoInfo()
         );
 
-        // Make the method instance
-        clang::CXXMethodDecl* newMethod = clang::CXXMethodDecl::Create(
-            *ctx,
-            klass,
-            Loc,
-            NameInfo,
-            functionType,
-            /*TInfo=*/nullptr,
-            /*StorageClass=*/clang::SC_None,
-            /*isInline=*/true,
-            /*isConst=*/method->isConst(),
-            Loc
-        );
+        // Make the function instance
+        clang::FunctionDecl* newFunction = nullptr;
+        if (clang::isa<clang::CXXMethodDecl>(function)) {
+            newFunction = clang::CXXMethodDecl::Create(
+                *ctx,
+                clang::cast<clang::CXXRecordDecl>(parent),
+                Loc,
+                NameInfo,
+                functionType,
+                /*TInfo=*/nullptr,
+                /*StorageClass=*/clang::SC_None,
+                /*isInline=*/true,
+                /*isConst=*/function->isConstexpr(),
+                Loc
+            );
+        }
+        else {
+            newFunction = clang::FunctionDecl::Create(
+                *ctx,
+                parent,
+                Loc,
+                NameInfo,
+                functionType,
+                /*TInfo=*/nullptr,
+                /*StorageClass=*/clang::SC_None,
+                /*isInline=*/true,
+                function->hasWrittenPrototype(),
+                /*isConst=*/function->isConstexpr()
+            );
+        }
 
-        newMethod->setParams(llvm::makeArrayRef(params));
+        newFunction->setParams(llvm::makeArrayRef(params));
 
-        createdFunctions.push_back(newMethod);
+        createdFunctions.push_back(newFunction);
     }
     for (auto fn = createdFunctions.rbegin(); fn < createdFunctions.rend(); ++fn) {
-        // Add the method to the class
-        klass->addDecl(*fn);
+        // Add the function to the class
+        parent->addDecl(*fn);
     }
     return createdFunctions;
 }

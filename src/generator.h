@@ -61,7 +61,7 @@ private:
 
     void insertTemplateParameters(const clang::QualType type);
 
-    std::vector<clang::FunctionDecl*> addOverloads(clang::CXXMethodDecl* method) const;
+    std::vector<clang::FunctionDecl*> addOverloads(clang::FunctionDecl* method) const;
 
     Options *options;
 
