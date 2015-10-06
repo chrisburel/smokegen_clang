@@ -1219,6 +1219,10 @@ std::string SmokeGenerator::mungedName(const clang::FunctionDecl *D) const {
 }
 
 char SmokeGenerator::munge(clang::QualType type) const {
+    if (type->isFunctionPointerType()) {
+        const auto& fn = type->getPointeeType()->getAs<clang::FunctionType>();
+        type = fn->getReturnType();
+    }
     type = dereferenced(type);
 
     if ((type->isPointerType() && type->getPointeeType()->isPointerType()) ||
