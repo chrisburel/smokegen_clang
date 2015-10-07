@@ -156,8 +156,8 @@ void SmokeGenerator::processDataStructures() {
 
             globalSpace->addDecl(newEnum);
 
-            e = newEnum;
-            usedTypes.insert(getCanonicalType(clang::QualType(e->getTypeForDecl(), 0)));
+            movedEnums[clang::QualType(e->getTypeForDecl(), 0)] = clang::QualType(newEnum->getTypeForDecl(), 0);
+            usedTypes.insert(getCanonicalType(clang::QualType(newEnum->getTypeForDecl(), 0)));
         }
         else {
             if (auto parent = clang::dyn_cast<clang::NamedDecl>(e->getParent())) {
@@ -545,7 +545,11 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     out << "static Smoke::Type types[] = {\n";
     out << "    { 0, 0, 0 },\t//0 (no type)\n";
     std::map<std::string, clang::QualType> sortedTypes;
-    for (auto const &type : usedTypes) {
+    for (auto type : usedTypes) {
+
+        if (movedEnums.count(type)) {
+            type = movedEnums.at(type);
+        }
 
         std::string typeString = type.getAsString(pp());
         if (typeString == "__va_list_tag *") {
@@ -637,10 +641,15 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
             for (int i = 0; i < meth->getNumParams(); ++i) {
                 auto param = meth->getParamDecl(i);
                 auto t = getCanonicalType(param->getType());
-                if (!typeIndex.count(t)) {
+                if (movedEnums.count(t)) {
+                    t = movedEnums.at(t);
+                }
+                if (typeIndex.count(t)) {
+                    indices[i] = typeIndex.at(t);
+                }
+                else {
                     llvm::outs() << "missing type: " << t.getAsString() << " in method " << getFullFunctionPrototype(meth, pp()) << " (while building munged names map)\n";
                 }
-                indices[i] = typeIndex[t];
             }
             int idx = 0;
             auto const & it = parameterList.find(indices);

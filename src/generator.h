@@ -103,6 +103,8 @@ private:
     // accessor, and the field it accesses.
     std::map<const clang::CXXMethodDecl *, const clang::DeclaratorDecl *> fieldAccessors;
 
+    std::map<clang::QualType, clang::QualType, clang::QualTypeOrdering> movedEnums;
+
     clang::CompilerInstance &ci;
 };
 
