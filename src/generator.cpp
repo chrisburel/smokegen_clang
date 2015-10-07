@@ -174,7 +174,7 @@ void SmokeGenerator::processDataStructures() {
             // This names a namespace, not a class
             continue;
         }
-        clang::CXXRecordDecl *klass = classes[klassName];
+        clang::CXXRecordDecl *klass = classes.at(klassName);
 
         for (auto const & base : klass->bases()) {
             superClasses.insert(base.getType()->getAsCXXRecordDecl());
@@ -337,9 +337,13 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     out << "static void *cast(void *xptr, Smoke::Index from, Smoke::Index to) {\n";
     out << "  switch(from) {\n";
     for (auto const &iter : classIndex) {
-        const clang::CXXRecordDecl *klass = classes[iter.first];
-        if (!klass)
+        const clang::CXXRecordDecl* klass = nullptr;
+        if (classes.count(iter.first)) {
+            klass = classes.at(iter.first);
+        }
+        else {
             continue;
+        }
 
         // avoid duplicate case values (diamond-shape inheritance).  Use std::map to sort output.
         std::map<int, const clang::CXXRecordDecl *> indices;
@@ -405,9 +409,13 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
 
     int currentIdx = 1;
     for (auto const &iter : classIndex) {
-        auto const &klass = classes[iter.first];
-        if (!klass)
+        const clang::CXXRecordDecl* klass = nullptr;
+        if (classes.count(iter.first)) {
+            klass = classes.at(iter.first);
+        }
+        else {
             continue;
+        }
 
         if (externalClasses.count(klass))
             continue;
@@ -483,8 +491,15 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     // xcall functions
     out << "// Those are the xcall functions defined in each x_*.cpp file, for dispatching method calls\n";
     for (auto const &iter : classIndex) {
-        auto const &klass = classes[iter.first];
-        auto const &nspace = namespaces[iter.first];
+        const clang::CXXRecordDecl* klass = nullptr;
+        const clang::NamespaceDecl* nspace = nullptr;
+        if (classes.count(iter.first)) {
+            klass = classes.at(iter.first);
+        }
+        else {
+            nspace = namespaces[iter.first];
+        }
+
         if ((klass && (externalClasses.count(klass) || isTemplate(klass))) ||
             (nspace && externalClasses.count(nspace)))
             continue;
@@ -504,7 +519,14 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
         if (!iter.second)
             continue;
 
-        auto const &klass = classes[iter.first];
+        const clang::CXXRecordDecl* klass = nullptr;
+        const clang::NamespaceDecl* nspace = nullptr;
+        if (classes.count(iter.first)) {
+            klass = classes.at(iter.first);
+        }
+        else {
+            nspace = namespaces[iter.first];
+        }
 
         if (externalClasses.count(klass)) {
             out << "    { \""  << iter.first << "\", true, 0, 0, 0, 0, 0 },\t//" << iter.second << "\n";
@@ -590,33 +612,25 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
 
     currentIdx = 1;
     for (auto const & iter : classIndex) {
-        auto klass = classes[iter.first];
-        auto nspace = namespaces[iter.first];
+        const clang::NamedDecl* klass;
+        if (classes.count(iter.first)) {
+            klass = classes.at(iter.first);
+        }
+        else {
+            klass = namespaces.at(iter.first);
+        }
+        const auto context = clang::cast<clang::DeclContext>(klass);
 
-        bool isExternal;
-        if (klass)
-            isExternal = externalClasses.count(klass);
-        else if (nspace)
-            isExternal = externalClasses.count(nspace);
+        bool isExternal = externalClasses.count(klass);
 
         //bool isDeclaredVirtual = declaredVirtualMethods.contains(klass);
         bool isDeclaredVirtual = false;
         if (isExternal && !isDeclaredVirtual)
             continue;
-        std::map<std::string, std::vector<const clang::ValueDecl*> >* map = 0;
-        if (klass) {
-            map = &classMungedNames[klass];
-        }
-        else if (nspace) {
-            map = &classMungedNames[nspace];
-        }
-        std::vector<const clang::FunctionDecl *> methods;
-        if (klass) {
-            methods.insert(methods.end(), klass->method_begin(), klass->method_end());
-        }
-        else if (nspace) {
-            methods.insert(methods.end(), function_iterator(nspace->decls_begin()), function_iterator(nspace->decls_end()));
-        }
+
+        auto map = &classMungedNames[klass];
+
+        auto methods = function_range(function_iterator(context->decls_begin()), function_iterator(context->decls_end()));
 
         for (const auto & meth : methods) {
             if (meth->getAccess() == clang::AS_private)
@@ -677,11 +691,8 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
             }
             parameterIndices[meth] = idx;
         }
-        const auto childDecls = klass ? klass->decls() : nspace->decls();
-        for (auto const & decl : childDecls) {
-            const clang::EnumDecl* e = 0;
-            if ((clang::isa<clang::EnumDecl>(decl))) {
-                e = clang::cast<clang::EnumDecl>(decl);
+        for (auto const & decl : context->decls()) {
+            if (const auto e = clang::dyn_cast<clang::EnumDecl>(decl)) {
                 if (e->getAccess() == clang::AS_private)
                     continue;
                 for (auto const & member : e->enumerators()) {
@@ -711,8 +722,14 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     i = 1;
     int methodCount = 1;
     for (auto const & iter : classIndex) {
-        clang::CXXRecordDecl* klass = classes[iter.first];
-        clang::NamespaceDecl* nspace = namespaces[iter.first];
+        const clang::CXXRecordDecl* klass = nullptr;
+        const clang::NamespaceDecl* nspace = nullptr;
+        if (classes.count(iter.first)) {
+            klass = classes.at(iter.first);
+        }
+        else {
+            nspace = namespaces[iter.first];
+        }
 
         const clang::CXXDestructorDecl *destructor = nullptr;
         std::vector<const clang::CXXMethodDecl*> virtualMethods;
@@ -840,7 +857,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
             methodCount++;
         }
         // enums
-        clang::DeclContext *context;
+        const clang::DeclContext *context;
         if (klass)
             context = klass;
         else if (nspace)
@@ -934,20 +951,21 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     out << "    {0, 0, 0},\t//0 (no method)\n";
 
     for (auto const & iter : classIndex) {
-        clang::CXXRecordDecl *klass = classes[iter.first];
-        clang::NamespaceDecl *nspace = namespaces[iter.first];
+        const clang::CXXRecordDecl* klass = nullptr;
+        const clang::NamespaceDecl* nspace = nullptr;
+        if (classes.count(iter.first)) {
+            klass = classes.at(iter.first);
+        }
+        else {
+            nspace = namespaces[iter.first];
+        }
         clang::NamedDecl *base = klass ? (clang::NamedDecl*)klass : (clang::NamedDecl*)nspace;
 
-        if (externalClasses.count(klass) || externalClasses.count(nspace))
+        if (externalClasses.count(base))
             continue;
 
         std::map<std::string, std::vector<const clang::ValueDecl*> >* map = 0;
-        if (klass){
-            map = &classMungedNames[klass];
-        }
-        else if (nspace) {
-            map = &classMungedNames[nspace];
-        }
+        map = &classMungedNames[base];
         for (auto const & munged_it : *map) {
             // class index, munged name index
             out << "    {" << classIndex.at(iter.first) << ", " << methodNames[munged_it.first] << ", ";
