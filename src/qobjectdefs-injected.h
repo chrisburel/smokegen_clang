@@ -28,7 +28,11 @@ static const char Injected[] = R"-(
 # undef  Q_SLOTS
 # define Q_SLOTS Q_SLOT
 # undef  Q_SIGNALS
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 0, 0))
 # define Q_SIGNALS public Q_SIGNAL
+#else
+# define Q_SIGNALS protected Q_SIGNAL
+#endif
 # undef  Q_PRIVATE_SLOT
 # define Q_PRIVATE_SLOT(d, signature) QT_ANNOTATE_CLASS2(qt_private_slot, d, signature)
 
