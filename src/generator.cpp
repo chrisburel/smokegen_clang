@@ -145,6 +145,9 @@ void SmokeGenerator::processDataStructures() {
             );
 
             for (const auto & enumerator : e->enumerators()) {
+                if (options->typeExcluded(enumerator->getQualifiedNameAsString())) {
+                    continue;
+                }
                 // copy these too.
                 newEnum->addDecl(clang::EnumConstantDecl::Create(
                     *ctx,
@@ -698,6 +701,9 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
             if (const auto e = clang::dyn_cast<clang::EnumDecl>(decl)) {
                 if (e->getAccess() == clang::AS_private)
                     continue;
+                if (options->typeExcluded(e->getQualifiedNameAsString())) {
+                    continue;
+                }
                 for (auto const & member : e->enumerators()) {
                     methodNames[member->getName()] = 1;
                     (*map)[member->getName()].push_back(member);
@@ -870,6 +876,9 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
             if (auto e = clang::dyn_cast<clang::EnumDecl>(decl)) {
                 if (e->getAccess() == clang::AS_private)
                     continue;
+                if (options->typeExcluded(e->getQualifiedNameAsString())) {
+                    continue;
+                }
 
                 clang::QualType enumType = clang::QualType(e->getTypeForDecl(), 0);
 
