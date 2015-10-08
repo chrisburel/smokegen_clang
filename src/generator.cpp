@@ -276,6 +276,10 @@ void SmokeGenerator::processDataStructures() {
             }
             if (method->isCopyAssignmentOperator() && method->isImplicit())
                 continue;
+            if (method->getFriendObjectKind() != clang::Decl::FOK_None) {
+                klass->removeDecl(method);
+                continue;
+            }
 
             addOverloads(method);
 
