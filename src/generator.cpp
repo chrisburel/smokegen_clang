@@ -77,6 +77,9 @@ void SmokeGenerator::processDataStructures() {
                     continue;
                 }
             }
+            if (fn->isVariadic()) {
+                continue;
+            }
 
             // Ignore functions where any of the arguments or return type
             // depends on a template parameter.
