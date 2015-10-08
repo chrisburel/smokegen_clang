@@ -612,7 +612,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     out << "static Smoke::Index argumentList[] = {\n";
     out << "    0,\t//0  (void)\n";
 
-    std::map<std::vector<int>, int> parameterList;
+    std::map<std::vector<int>, std::vector<const clang::FunctionDecl*> > parameterList;
     std::map<const clang::FunctionDecl*, int> parameterIndices;
 
     // munged name => index
@@ -620,7 +620,6 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
     // class => list of munged names with possible methods or enum members
     std::map<const clang::NamedDecl*, std::map<std::string, std::vector<const clang::ValueDecl*> > > classMungedNames;
 
-    currentIdx = 1;
     for (auto const & iter : classIndex) {
         const clang::NamedDecl* klass;
         if (classes.count(iter.first)) {
@@ -658,7 +657,6 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
             }
 
             if (!meth->getNumParams()) {
-                parameterIndices[meth] = 0;
                 continue;
             }
             std::vector<int> indices(meth->getNumParams());
@@ -675,31 +673,7 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
                     llvm::outs() << "missing type: " << t.getAsString() << " in method " << getFullFunctionPrototype(meth, pp()) << " (while building munged names map)\n";
                 }
             }
-            int idx = 0;
-            auto const & it = parameterList.find(indices);
-            if (it == parameterList.end()) {
-                idx = currentIdx;
-                parameterList[indices] = idx;
-                out << "    ";
-                for (int i = 0; i < indices.size(); i++) {
-                    if (i > 0) out << ", ";
-                    out << indices[i];
-                }
-                std::string comment;
-                for (const auto& param : meth->params()) {
-                    comment += getCanonicalType(param->getType()).getAsString(pp()) + ", ";
-                }
-                if (comment.size()) {
-                    comment.erase(comment.size()-2, comment.size());
-                }
-
-                out << ", 0,\t//" << idx << "  " << comment << "\n";
-                currentIdx += indices.size() + 1;
-            }
-            else {
-                idx = it->second;
-            }
-            parameterIndices[meth] = idx;
+            parameterList[indices].push_back(meth);
         }
         for (auto const & decl : context->decls()) {
             if (const auto e = clang::dyn_cast<clang::EnumDecl>(decl)) {
@@ -714,6 +688,38 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
                 }
             }
         }
+    }
+
+    int currentIndex = 1;
+    for (const auto it : parameterList) {
+        const auto& indices = it.first;
+        const auto& methods = it.second;
+
+        out << "    ";
+        for (int i = 0; i < indices.size(); i++) {
+            if (i > 0) out << ", ";
+            out << indices[i];
+        }
+
+        std::string comment;
+        for (const auto param : methods[0]->params()) {
+            comment += getCanonicalType(param->getType()).getAsString(pp()) + ", ";
+        }
+        if (comment.size()) {
+            comment.erase(comment.size()-2, comment.size());
+        }
+        comment += '\t';
+        for (const auto method : methods) {
+            comment += getFullFunctionPrototype(method, pp()) + " <" + method->getSourceRange().getBegin().printToString(ctx->getSourceManager()) + "> " + method->getParent()->getDeclKindName() + "         ";
+        }
+
+        out << ", 0,\t//" << currentIndex << "  " << comment << "\n";
+
+        for (const auto method : methods) {
+            parameterIndices[method] = currentIndex;
+        }
+
+        currentIndex += indices.size() + 1;
     }
     out << "};\n\n";
 
