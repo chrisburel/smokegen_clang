@@ -1,13 +1,22 @@
+#include <regex>
+
 #include "generator.h"
 #include "util.h"
 #include <clang/Sema/DeclSpec.h>
 #include <clang/Sema/AttributeList.h>
+#include <clang/AST/Attr.h>
 
 void SmokeGenerator::addClass(clang::CXXRecordDecl *D) {
     // Classes can be forward declared even after their primary declaration is
     // seen.  We always want the one with a definition, if it exists.
     D = D->hasDefinition() ? D->getDefinition() : D->getCanonicalDecl();
+
+    if (classes.count(D->getQualifiedNameAsString()) && classes[D->getQualifiedNameAsString()] == D) {
+        return;
+    }
     classes[D->getQualifiedNameAsString()] = D;
+
+    addQPropertyAnnotations(D);
 }
 
 void SmokeGenerator::addEnum(clang::EnumDecl *D) {
@@ -816,8 +825,13 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
                 flags += "Smoke::mf_copyctor|";
             if (fieldAccessors.count(asMethod))
                 flags += "Smoke::mf_attribute|";
-        //    if (meth->isQPropertyAccessor())
-        //        flags += "Smoke::mf_property|";
+            for (auto attr_it = meth->specific_attr_begin<clang::AnnotateAttr>();
+              attr_it != meth->specific_attr_end<clang::AnnotateAttr>();
+              ++attr_it) {
+                const clang::AnnotateAttr *A = *attr_it;
+                if (A->getAnnotation() == "qt_property")
+                    flags += "Smoke::mf_property|";
+            }
 
             // Simply checking for flags() & Method::Virtual won't be enough, because methods can override virtuals without being
             // declared 'virtual' themselves (and they're still virtual, then).
@@ -1490,4 +1504,44 @@ std::vector<clang::FunctionDecl*> SmokeGenerator::addOverloads(clang::FunctionDe
         parent->addDecl(*fn);
     }
     return createdFunctions;
+}
+
+void SmokeGenerator::addQPropertyAnnotations(const clang::CXXRecordDecl* D) const {
+    for (const auto& d : D->decls()) {
+        if (clang::StaticAssertDecl *S = llvm::dyn_cast<clang::StaticAssertDecl>(d) ) {
+            if (auto *E = llvm::dyn_cast<clang::UnaryExprOrTypeTraitExpr>(S->getAssertExpr())) {
+                if (clang::ParenExpr *PE = llvm::dyn_cast<clang::ParenExpr>(E->getArgumentExpr())) {
+                    llvm::StringRef key = S->getMessage()->getString();
+                    if (key == "qt_property") {
+                        clang::StringLiteral *Val = llvm::dyn_cast<clang::StringLiteral>(PE->getSubExpr());
+
+                        std::string propertyStr = Val->getString().str();
+                        std::smatch match;
+                        std::regex readRe("READ +([^ ]*)");
+
+                        if (std::regex_search(propertyStr, match, readRe)) {
+                            auto Name = ctx->DeclarationNames.getIdentifier(&ctx->Idents.get(llvm::StringRef(match[1])));
+                            auto lookup = D->lookup(Name);
+                            auto data = lookup.data();
+                            if (const auto& method = clang::dyn_cast<clang::CXXMethodDecl>(*data)) {
+                                auto annotate = clang::AnnotateAttr(clang::SourceRange(), *ctx, llvm::StringRef("qt_property"), 0).clone(*ctx);
+                                method->addAttr(annotate);
+                            }
+                        }
+
+                        std::regex writeRe("WRITE +([^ ]*)");
+                        if (std::regex_search(propertyStr, match, writeRe)) {
+                            auto Name = ctx->DeclarationNames.getIdentifier(&ctx->Idents.get(llvm::StringRef(match[1])));
+                            auto lookup = D->lookup(Name);
+                            auto data = lookup.data();
+                            if (const auto& method = clang::dyn_cast<clang::CXXMethodDecl>(*data)) {
+                                auto annotate = clang::AnnotateAttr(clang::SourceRange(), *ctx, llvm::StringRef("qt_property"), 0).clone(*ctx);
+                                method->addAttr(annotate);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

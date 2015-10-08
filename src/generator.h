@@ -63,6 +63,8 @@ private:
 
     std::vector<clang::FunctionDecl*> addOverloads(clang::FunctionDecl* method) const;
 
+    void addQPropertyAnnotations(const clang::CXXRecordDecl* D) const;
+
     Options *options;
 
     // All classes, enums, and namespaces found while reading the header files.
