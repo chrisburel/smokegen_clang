@@ -1467,7 +1467,21 @@ std::vector<clang::FunctionDecl*> SmokeGenerator::addOverloads(clang::FunctionDe
 
         // Make the function instance
         clang::FunctionDecl* newFunction = nullptr;
-        if (clang::isa<clang::CXXMethodDecl>(function)) {
+        if (const auto ctor = clang::dyn_cast<clang::CXXConstructorDecl>(function)) {
+            newFunction = clang::CXXConstructorDecl::Create(
+                *ctx,
+                clang::cast<clang::CXXRecordDecl>(parent),
+                Loc,
+                NameInfo,
+                functionType,
+                /*TInfo=*/nullptr,
+                /*isExplicit=*/ctor->isExplicitSpecified(),
+                /*isInline=*/ctor->isInlined(),
+                /*isInline=*/ctor->isImplicit(),
+                /*isConst=*/ctor->isConstexpr()
+            );
+        }
+        else if (clang::isa<clang::CXXMethodDecl>(function)) {
             newFunction = clang::CXXMethodDecl::Create(
                 *ctx,
                 clang::cast<clang::CXXRecordDecl>(parent),
