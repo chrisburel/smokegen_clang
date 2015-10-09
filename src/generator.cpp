@@ -275,6 +275,7 @@ void SmokeGenerator::processDataStructures() {
                     NameInfo, functionType,
                     /*TInfo=*/nullptr, /*StorageClass=*/storage,
                     /*isInline=*/true, /*isConst=*/true, FieldLoc);
+            method->setAccess(field->getAccess());
             klass->addDecl(method);
             fieldAccessors[method] = field;
 
@@ -300,6 +301,7 @@ void SmokeGenerator::processDataStructures() {
                     NameInfo, functionType,
                     /*TInfo=*/nullptr, /*StorageClass=*/storage,
                     /*isInline=*/true, /*isConst=*/false, FieldLoc);
+            method->setAccess(field->getAccess());
 
             clang::ParmVarDecl *newValueArg = clang::ParmVarDecl::Create(*ctx, method, FieldLoc, FieldLoc,
                     /*IdentifierInfo=*/nullptr, setterArgType, /*TInfo=*/nullptr, /*StorageClass=*/clang::SC_None, /*DefArg=*/nullptr);
