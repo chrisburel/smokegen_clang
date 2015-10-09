@@ -1481,7 +1481,7 @@ std::vector<clang::FunctionDecl*> SmokeGenerator::addOverloads(clang::FunctionDe
                 /*isConst=*/ctor->isConstexpr()
             );
         }
-        else if (clang::isa<clang::CXXMethodDecl>(function)) {
+        else if (const auto method = clang::dyn_cast<clang::CXXMethodDecl>(function)) {
             newFunction = clang::CXXMethodDecl::Create(
                 *ctx,
                 clang::cast<clang::CXXRecordDecl>(parent),
@@ -1489,7 +1489,7 @@ std::vector<clang::FunctionDecl*> SmokeGenerator::addOverloads(clang::FunctionDe
                 NameInfo,
                 functionType,
                 /*TInfo=*/nullptr,
-                /*StorageClass=*/clang::SC_None,
+                /*StorageClass=*/method->getStorageClass(),
                 /*isInline=*/function->isInlined(),
                 /*isConst=*/function->isConstexpr(),
                 Loc
