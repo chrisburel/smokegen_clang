@@ -199,6 +199,41 @@ void SmokeGenerator::processDataStructures() {
 
         auto ptrToThisClassType = ctx->getPointerType(clang::QualType(klass->getTypeForDecl(), 0));
 
+        // Add types from methods
+        std::vector<clang::CXXMethodDecl*> methods;
+        methods.insert(methods.begin(), klass->method_begin(), klass->method_end());
+        for (auto const &method : methods) {
+            if (method->getAccess() == clang::AS_private) {
+                continue;
+            }
+            if (hasTypeNonPublicParts(method->getReturnType()) || options->typeExcluded(getFullFunctionPrototype(method, pp()))) {
+                klass->removeDecl(method);
+                continue;
+            }
+            if (method->isCopyAssignmentOperator() && method->isImplicit())
+                continue;
+            if (method->getFriendObjectKind() != clang::Decl::FOK_None) {
+                klass->removeDecl(method);
+                continue;
+            }
+
+            addOverloads(method);
+
+            if (method->getKind() == clang::Decl::CXXConstructor) {
+                // clang reports constructors as returning void.  According to
+                // smoke, they return a pointer to the class.
+                usedTypes.insert(getCanonicalType(ptrToThisClassType));
+            }
+            else {
+                usedTypes.insert(getCanonicalType(method->getReturnType()));
+            }
+
+            // Add the types from the parameters of this method
+            for (auto const &param : method->params()) {
+                usedTypes.insert(getCanonicalType(param->getType()));
+            }
+        }
+
         std::vector<clang::DeclaratorDecl *> fields;
         fields.insert(fields.end(), klass->field_begin(), klass->field_end());
         auto vars = var_range(var_iterator(klass->decls_begin()), var_iterator(klass->decls_end()));
@@ -272,40 +307,6 @@ void SmokeGenerator::processDataStructures() {
             fieldAccessors[method] = field;
         }
 
-        // Add types from methods
-        std::vector<clang::CXXMethodDecl*> methods;
-        methods.insert(methods.begin(), klass->method_begin(), klass->method_end());
-        for (auto const &method : methods) {
-            if (method->getAccess() == clang::AS_private) {
-                continue;
-            }
-            if (hasTypeNonPublicParts(method->getReturnType()) || options->typeExcluded(getFullFunctionPrototype(method, pp()))) {
-                klass->removeDecl(method);
-                continue;
-            }
-            if (method->isCopyAssignmentOperator() && method->isImplicit())
-                continue;
-            if (method->getFriendObjectKind() != clang::Decl::FOK_None) {
-                klass->removeDecl(method);
-                continue;
-            }
-
-            addOverloads(method);
-
-            if (method->getKind() == clang::Decl::CXXConstructor) {
-                // clang reports constructors as returning void.  According to
-                // smoke, they return a pointer to the class.
-                usedTypes.insert(getCanonicalType(ptrToThisClassType));
-            }
-            else {
-                usedTypes.insert(getCanonicalType(method->getReturnType()));
-            }
-
-            // Add the types from the parameters of this method
-            for (auto const &param : method->params()) {
-                usedTypes.insert(getCanonicalType(param->getType()));
-            }
-        }
     }
 
     for (const auto & type : usedTypes) {
