@@ -1490,7 +1490,7 @@ std::vector<clang::FunctionDecl*> SmokeGenerator::addOverloads(clang::FunctionDe
                 functionType,
                 /*TInfo=*/nullptr,
                 /*StorageClass=*/clang::SC_None,
-                /*isInline=*/true,
+                /*isInline=*/function->isInlined(),
                 /*isConst=*/function->isConstexpr(),
                 Loc
             );
@@ -1504,7 +1504,7 @@ std::vector<clang::FunctionDecl*> SmokeGenerator::addOverloads(clang::FunctionDe
                 functionType,
                 /*TInfo=*/nullptr,
                 /*StorageClass=*/clang::SC_None,
-                /*isInline=*/true,
+                /*isInline=*/function->isInlined(),
                 function->hasWrittenPrototype(),
                 /*isConst=*/function->isConstexpr()
             );
