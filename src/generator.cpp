@@ -1511,6 +1511,7 @@ std::vector<clang::FunctionDecl*> SmokeGenerator::addOverloads(clang::FunctionDe
                 /*isConst=*/function->isConstexpr()
             );
         }
+        newFunction->setAccess(function->getAccess());
         for (auto attr_it = function->specific_attr_begin<clang::AnnotateAttr>();
           attr_it != function->specific_attr_end<clang::AnnotateAttr>();
           ++attr_it) {
