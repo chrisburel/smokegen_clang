@@ -269,9 +269,11 @@ void SmokeGenerator::processDataStructures() {
             protoInfo.TypeQuals |= clang::Qualifiers::Const; // set method->setIsConst(true)
             clang::QualType functionType = ctx->getFunctionType(getterReturnType, clang::ArrayRef<clang::QualType>(), protoInfo);
 
+            const auto storage = clang::isa<clang::VarDecl>(field) ? clang::SC_Static : clang::SC_None;
+
             clang::CXXMethodDecl *method = clang::CXXMethodDecl::Create(*ctx, klass, FieldLoc,
                     NameInfo, functionType,
-                    /*TInfo=*/nullptr, /*StorageClass=*/clang::SC_None,
+                    /*TInfo=*/nullptr, /*StorageClass=*/storage,
                     /*isInline=*/true, /*isConst=*/true, FieldLoc);
             klass->addDecl(method);
             fieldAccessors[method] = field;
@@ -296,7 +298,7 @@ void SmokeGenerator::processDataStructures() {
 
             method = clang::CXXMethodDecl::Create(*ctx, klass, FieldLoc,
                     NameInfo, functionType,
-                    /*TInfo=*/nullptr, /*StorageClass=*/clang::SC_None,
+                    /*TInfo=*/nullptr, /*StorageClass=*/storage,
                     /*isInline=*/true, /*isConst=*/false, FieldLoc);
 
             clang::ParmVarDecl *newValueArg = clang::ParmVarDecl::Create(*ctx, method, FieldLoc, FieldLoc,
