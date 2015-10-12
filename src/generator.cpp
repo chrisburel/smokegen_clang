@@ -812,11 +812,15 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
                 continue;
             if (meth->getAccess() == clang::AS_private)
                 continue;
-            if (meth == destructor) {
+            if (const auto asCXXMethod = clang::dyn_cast<clang::CXXMethodDecl>(meth)) {
+                if (asCXXMethod->isCopyAssignmentOperator() && meth->isImplicit()) {
+                    continue;
+                }
+            }
+            if (clang::isa<clang::CXXDestructorDecl>(meth)) {
+                // Destructors are added at the end of the method list
                 continue;
             }
-            if (clang::isa<clang::CXXMethodDecl>(meth) && clang::cast<clang::CXXMethodDecl>(meth)->isCopyAssignmentOperator() && meth->isImplicit())
-                continue;
 
             out << "    {" << iter.second << ", " << methodNames[meth->getNameAsString()] << ", ";
             int numArgs = meth->getNumParams();
