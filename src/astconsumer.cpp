@@ -17,6 +17,18 @@ bool SmokegenASTConsumer::HandleTopLevelDecl(clang::DeclGroupRef DR) {
 }
 
 void SmokegenASTConsumer::HandleTranslationUnit(clang::ASTContext& Ctx) {
+    auto dataFileOut = ci.createOutputFile(
+        options->outputDir + "/smokedata.cpp",
+        false,
+        true,
+        "",
+        "",
+        false,
+        true
+    );
+    if (not dataFileOut) {
+        return;
+    }
     generator.processDataStructures();
-    generator.writeDataFile(llvm::outs());
+    generator.writeDataFile(*dataFileOut);
 }
