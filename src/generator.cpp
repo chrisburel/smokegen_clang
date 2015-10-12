@@ -199,6 +199,27 @@ void SmokeGenerator::processDataStructures() {
 
         auto ptrToThisClassType = ctx->getPointerType(clang::QualType(klass->getTypeForDecl(), 0));
 
+        for (const auto& d : klass->decls()) {
+            if (const auto usingShadowDecl = clang::dyn_cast<clang::UsingShadowDecl>(d)) {
+                if (const auto method = clang::dyn_cast<clang::CXXMethodDecl>(usingShadowDecl->getTargetDecl())) {
+                    auto newMethod = clang::CXXMethodDecl::Create(
+                        *ctx,
+                        klass,
+                        method->getSourceRange().getBegin(),
+                        method->getNameInfo(),
+                        method->getType(),
+                        method->getTypeSourceInfo(),
+                        method->getStorageClass(),
+                        method->isInlineSpecified(),
+                        method->isConstexpr(),
+                        method->getSourceRange().getEnd()
+                    );
+                    klass->addDecl(newMethod);
+                    newMethod->setParams(method->parameters());
+                }
+            }
+        }
+
         // Add types from methods
         std::vector<clang::CXXMethodDecl*> methods;
         methods.insert(methods.begin(), klass->method_begin(), klass->method_end());
