@@ -16,6 +16,15 @@ llvm::cl::opt<std::string> SmokeConfigFile(
     llvm::cl::cat(SmokegenCategory)
 );
 
+llvm::cl::opt<std::string> OutputDir(
+    "o",
+    "outputDir",
+    llvm::cl::desc("Directory to place generated files"),
+    llvm::cl::value_desc("filename"),
+    llvm::cl::init("."),
+    llvm::cl::cat(SmokegenCategory)
+);
+
 constexpr char SizeTDecider<unsigned int>::smokeName[];
 constexpr char SizeTDecider<unsigned long>::smokeName[];
 
@@ -45,6 +54,7 @@ int main(int argc, const char **argv) {
     }
 
     Options options;
+    options.outputDir = OutputDir;
     llvm::yaml::Input yin((*optionsFile)->getBuffer());
     yin >> options;
     if (yin.error()) {
