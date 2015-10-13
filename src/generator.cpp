@@ -1606,7 +1606,7 @@ void SmokeGenerator::writeClassFiles() {
         std::string classCode;
         std::stringstream classOut(classCode);
 
-        // write the class code to a QString so we can later prepend the #includes
+        // write the class code to a string so we can later prepend the #includes
         auto begin = includedClasses.begin() + (count * i);
         auto end = begin;
         if (i == options->parts - 1) {
@@ -1632,7 +1632,7 @@ void SmokeGenerator::writeClassFiles() {
 
         // create the file
         auto& fileOut = *ci.createOutputFile(
-            options->outputDir + "./x_" + std::to_string(i + 1) + ".cpp",
+            options->outputDir + "x_" + std::to_string(i + 1) + ".cpp",
             false,
             true,
             "",

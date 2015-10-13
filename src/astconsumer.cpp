@@ -18,7 +18,7 @@ bool SmokegenASTConsumer::HandleTopLevelDecl(clang::DeclGroupRef DR) {
 
 void SmokegenASTConsumer::HandleTranslationUnit(clang::ASTContext& Ctx) {
     auto dataFileOut = ci.createOutputFile(
-        options->outputDir + "/smokedata.cpp",
+        options->outputDir + "smokedata.cpp",
         false,
         true,
         "",

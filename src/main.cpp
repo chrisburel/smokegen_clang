@@ -54,6 +54,9 @@ int main(int argc, const char **argv) {
     }
 
     Options options;
+    if (OutputDir[-1] != '/') {
+        OutputDir += '/';
+    }
     options.outputDir = OutputDir;
     llvm::yaml::Input yin((*optionsFile)->getBuffer());
     yin >> options;
