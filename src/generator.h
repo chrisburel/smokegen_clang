@@ -33,6 +33,7 @@ public:
     void processDataStructures();
 
     void writeDataFile(llvm::raw_ostream &out);
+    void writeClassFiles();
 
     clang::PrintingPolicy pp() const { return ci.getSema().getPrintingPolicy(); }
 

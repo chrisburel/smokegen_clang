@@ -31,4 +31,5 @@ void SmokegenASTConsumer::HandleTranslationUnit(clang::ASTContext& Ctx) {
     }
     generator.processDataStructures();
     generator.writeDataFile(*dataFileOut);
+    generator.writeClassFiles();
 }
