@@ -3,6 +3,7 @@
 
 #include <map>
 #include <set>
+#include <sstream>
 #include <string>
 
 #include <clang/AST/DeclCXX.h>
@@ -47,6 +48,8 @@ private:
 
     bool hasTypeNonPublicParts(const clang::QualType &type) const;
 
+    std::string stackItemField(const clang::QualType type) const;
+    std::string assignmentString(const clang::QualType type, const std::string& var) const;
     std::string getTypeFlags(clang::QualType t, int *classIdx) const;
 
     std::string mungedName(const clang::FunctionDecl *D) const;
@@ -65,6 +68,22 @@ private:
     std::vector<clang::FunctionDecl*> addOverloads(clang::FunctionDecl* method) const;
 
     void addQPropertyAnnotations(const clang::CXXRecordDecl* D) const;
+
+    std::string generateMethodBody(const std::string& indent, const std::string& className, const std::string& smokeClassName, const clang::FunctionDecl* function,
+                                                int index, bool dynamicDispatch, std::set<std::string>& includes);
+    void generateMethod(std::stringstream& out, const std::string& className, const std::string& smokeClassName,
+                                     const clang::FunctionDecl* function, int index, std::set<std::string>& includes);
+
+    void generateGetAccessor(std::stringstream& out, const std::string& className, const clang::CXXMethodDecl* method,
+                                              const clang::QualType type, int index) const;
+    void generateSetAccessor(std::stringstream& out, const std::string& className, const clang::CXXMethodDecl* method,
+                                              const clang::QualType type, int index) const;
+
+    void generateEnumMemberCall(std::stringstream& out, const std::string& className, const std::string& member, int index) const;
+
+    void generateVirtualMethod(std::stringstream& out, const clang::CXXMethodDecl* meth, std::set<std::string>& includes) const;
+
+    void writeClass(std::stringstream& out, const clang::NamedDecl* decl, const std::string& className, std::set<std::string>& includes);
 
     Options *options;
 

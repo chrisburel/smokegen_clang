@@ -1,5 +1,4 @@
 #include <regex>
-#include <sstream>
 
 #include "generator.h"
 #include "util.h"
@@ -429,8 +428,8 @@ void SmokeGenerator::writeDataFile(llvm::raw_ostream &out) {
                 out << "        case " << iter.second << ": return (void*)(" << klass->getQualifiedNameAsString() << "*)xptr;\n";
             }
             else {
-            //if (Util::isVirtualInheritancePath(desc, &klass)) {
-            //    out << QString("        case %1: return (void*)dynamic_cast<%2*>((%3*)xptr);\n")
+            //if (isVirtualInheritancePath(desc, &klass)) {
+            //    out << std::string("        case %1: return (void*)dynamic_cast<%2*>((%3*)xptr);\n")
             //        .arg(index).arg(className).arg(klass.toString());
             //} else {
                 out << "        case " << it.first << ": return (void*)(" << it.second->getQualifiedNameAsString() << "*)(" << klass->getQualifiedNameAsString() << "*)xptr;\n";
@@ -1202,6 +1201,64 @@ bool SmokeGenerator::hasTypeNonPublicParts(const clang::QualType &type) const {
     return false;
 }
 
+std::string SmokeGenerator::stackItemField(const clang::QualType type) const {
+    auto deref = dereferenced(type);
+    if (options->qtMode && !type->isReferenceType() && !type->isPointerType() &&
+        deref->getAsCXXRecordDecl() && isTemplate(deref->getAsCXXRecordDecl()) && deref->getAsCXXRecordDecl()->getNameAsString() == "QFlags")
+    {
+        return "s_uint";
+    }
+
+    if (type->isPointerType() || type->isReferenceType() || deref->isFunctionPointerType() || deref->isArrayType() || contains(options->voidpTypes, deref.getAsString(pp()))
+        || (!deref->isBuiltinType() && !deref->isEnumeralType()))
+    {
+        return "s_class";
+    }
+
+    if (deref->isEnumeralType()) {
+        return "s_enum";
+    }
+
+    std::string typeName = type.getAsString(pp());
+    // replace the unsigned stuff, look the type up in typeMap and if
+    // necessary, add a 'u' for unsigned types at the beginning again
+    bool _unsigned = false;
+    if (typeName.substr(0, 9) == "unsigned ") {
+        typeName = typeName.substr(9, typeName.size());
+        _unsigned = true;
+    }
+    else if (typeName.substr(0, 7) == "signed ") {
+        typeName = typeName.substr(7, typeName.size());
+    }
+    if (options->typeMap.count(typeName)) {
+        typeName = options->typeMap[typeName];
+    }
+    if (_unsigned)
+        typeName = "u" + typeName;
+    return "s_" + typeName;
+}
+
+std::string SmokeGenerator::assignmentString(const clang::QualType type, const std::string& var) const {
+    auto deref = dereferenced(type);
+    if (type->isPointerType() || deref->isFunctionPointerType()) {
+        return "(void*)" + var;
+    } else if (type->isReferenceType()) {
+        return "(void*)&" + var;
+    } else if (deref->isBuiltinType() && !contains(options->voidpTypes, deref.getAsString(pp()))) {
+        return var;
+    } else if (deref->isEnumeralType()) {
+        return var;
+    } else if (options->qtMode && type->getAsCXXRecordDecl() && isTemplate(type->getAsCXXRecordDecl()) && type->getAsCXXRecordDecl()->getNameAsString() == "QFlags")
+    {
+        return "(uint)" + var;
+    } else {
+        std::string ret = "(void*)new " + type.getAsString(pp());
+        ret += '(' + var + ')';
+        return ret;
+    }
+    return std::string();
+}
+
 std::string SmokeGenerator::getTypeFlags(clang::QualType t, int *classIdx) const {
     if (t->isFunctionPointerType()) {
         const auto& fn = t->getPointeeType()->getAs<clang::FunctionType>();
@@ -1234,7 +1291,7 @@ std::string SmokeGenerator::getTypeFlags(clang::QualType t, int *classIdx) const
     } else if (t->isBuiltinType() && t.getAsString() != "void" && !t->isPointerType() && !t->isReferenceType()) {
         flags += "Smoke::t_";
 
-        // replace the unsigned stuff, look the type up in Util::typeMap and if
+        // replace the unsigned stuff, look the type up in typeMap and if
         // necessary, add a 'u' for unsigned types at the beginning again
         bool _unsigned = false;
         if (typeName.substr(0, 9) == "unsigned ") {
@@ -1597,6 +1654,161 @@ void SmokeGenerator::addQPropertyAnnotations(const clang::CXXRecordDecl* D) cons
     }
 }
 
+std::string SmokeGenerator::generateMethodBody(const std::string& indent, const std::string& className, const std::string& smokeClassName, const clang::FunctionDecl* function,
+                                            int index, bool dynamicDispatch, std::set<std::string>& includes)
+{
+    std::stringstream out;
+
+    out << indent;
+
+    const auto meth = clang::dyn_cast<clang::CXXMethodDecl>(function);
+
+    auto retType = function->getReturnType().getCanonicalType();
+
+    if (clang::isa<clang::CXXConstructorDecl>(meth)) {
+        retType = ctx->getPointerType(clang::QualType(meth->getParent()->getTypeForDecl(), 0));
+        out << smokeClassName << "* xret = new " << smokeClassName << "(";
+    } else {
+        auto ploc = ctx->getSourceManager().getPresumedLoc(function->getSourceRange().getBegin());
+        if (!ploc.isInvalid()) {
+            includes.insert(ploc.getFilename());
+        }
+
+        if (const auto typeClass = retType->getAsCXXRecordDecl()) {
+            ploc = ctx->getSourceManager().getPresumedLoc(typeClass->getSourceRange().getBegin());
+            if (!ploc.isInvalid()) {
+                includes.insert(ploc.getFilename());
+            }
+        }
+
+        if (retType->isFunctionPointerType() || retType->isArrayType()) {
+            std::string fnPtrName = "xret";
+            retType.getAsStringInternal(fnPtrName, pp());
+            out << fnPtrName << " = ";
+        }
+        else if (!retType->isVoidType()) {
+            out << retType.getAsString(pp()) << " xret = ";
+        }
+
+        if (!(meth && meth->isStatic())) {
+            if (meth->isConst()) {
+                out << "((const " << smokeClassName << "*)this)->";
+            }
+            else {
+                out << "this->";
+            }
+        }
+        if (!dynamicDispatch) {
+            // dynamic dispatch not wanted, call with 'this->Foo::method()'
+            out << className << "::";
+        }
+        else if (!meth) {
+            if (clang::cast<clang::NamedDecl>(function->getParent())->getNameAsString() != "QGlobalSpace") {
+                out << clang::cast<clang::NamedDecl>(function->getParent())->getQualifiedNameAsString() << "::";
+            }
+        }
+        out << function->getNameAsString() << "(";
+    }
+
+    for (int j = 0; j < function->parameters().size(); j++) {
+        const auto& param = function->getParamDecl(j);
+
+        if (const auto typeClass = param->getType()->getAsCXXRecordDecl()) {
+            auto ploc = ctx->getSourceManager().getPresumedLoc(typeClass->getSourceRange().getBegin());
+            if (!ploc.isInvalid()) {
+                includes.insert(ploc.getFilename());
+            }
+        }
+
+        if (j > 0) out << ",";
+
+        std::string field = stackItemField(param->getType());
+        const auto type = param->getType().getCanonicalType();
+        std::string typeName = type.getAsString(pp());
+        if (type->isArrayType()) {
+            //Type t = *param.type();
+            //t.setPointerDepth(t.pointerDepth() + 1);
+            //t.setIsRef(false);
+            //typeName = t.toString();
+            out << '*';
+        }
+        //else if (field == "s_class" && (param->getType()->isPointerType() || param->getType()->isReferenceType()) && !param->getType()->isFunctionPointerType()) {
+        //    // references and classes are passed in s_class
+        //    typeName += '*';
+        //    out << '*';
+        //}
+        // casting to a reference doesn't make sense in this case
+        if (type->isReferenceType() && !type->isFunctionPointerType()) {
+            std::remove(typeName.begin(), typeName.end(), '&');
+        }
+        out << "(" << typeName << ")" << "x[" << j + 1 << "]." << field;
+    }
+
+    //// if the method has any other default parameters, append them here as values
+    //if (!function->remainingDefaultValues().isEmpty()) {
+    //    const std::stringList& defaultParams = function->remainingDefaultValues();
+    //    if (function->parameters().count() > 0)
+    //        out << "," ;
+    //    out << defaultParams.join(",");
+    //}
+
+    out << ");\n";
+    if (!retType->isVoidType()) {
+        out << indent << "x[0]." << stackItemField(retType) << " = " << assignmentString(retType, "xret") << ";\n";
+    } else {
+        out << indent << "(void)x; // noop (for compiler warning)\n";
+    }
+
+    return out.str();
+}
+
+void SmokeGenerator::generateMethod(std::stringstream& out, const std::string& className, const std::string& smokeClassName,
+                                     const clang::FunctionDecl* function, int index, std::set<std::string>& includes) {
+
+    const auto meth = clang::dyn_cast<clang::CXXMethodDecl>(function);
+
+    out << "    ";
+    if (meth && (meth->isStatic() || clang::isa<clang::CXXConstructorDecl>(meth))) {
+        out << "static ";
+    }
+    out << "void x_" << std::to_string(index) << "(Smoke::Stack x) {\n";
+    out << "        // " << getFullFunctionPrototype(function, pp()) << "\n";
+
+    bool dynamicDispatch = function->isPure() && (!meth || meth->isVirtual());
+
+    if (dynamicDispatch || (meth && !contains(virtualMethodsForClass(meth->getParent()), meth))) {
+        // This is either already flagged as dynamic dispatch or just a normal method. We can generate a normal method call for it.
+
+        out << generateMethodBody("        ",   // indent
+                                  className, smokeClassName, meth, index, dynamicDispatch, includes);
+    } else {
+        // This is a virtual method. To know whether we should call with dynamic dispatch, we need a bit of RTTI magic.
+        includes.insert("typeinfo");
+        out << "        if (dynamic_cast<__internal_SmokeClass*>(static_cast<" << className << "*>(this))) {\n";   //
+        out << generateMethodBody("            ",   // indent
+                                  className, smokeClassName, meth, index, false, includes);
+        out << "        } else {\n";
+        out << generateMethodBody("            ",   // indent
+                                  className, smokeClassName, meth, index, true, includes);
+        out << "        }\n";
+    }
+
+    out << "    }\n";
+
+    // If the constructor was generated from another one with default parameteres, we don't need to explicitly create
+    // it here again. The x_* call will append the default parameters at the end and thus choose the right constructor.
+    //if (meth.isConstructor() && meth.remainingDefaultValues().isEmpty()) {
+    //    out << "    explicit " << smokeClassName << '(';
+    //    std::stringList x_list;
+    //    for (int i = 0; i < meth.parameters().count(); i++) {
+    //        if (i > 0) out << ", ";
+    //        out << meth.parameters()[i].type()->toString() << " x" << std::string::number(i + 1);
+    //        x_list << "x" + std::string::number(i + 1);
+    //    }
+    //    out << ") : " << meth.getClass()->name() << '(' << x_list.join(", ") << ") {}\n";
+    //}
+}
+
 void SmokeGenerator::writeClassFiles() {
     // how many classes go in one file
     int count = includedClasses.size() / options->parts;
@@ -1604,7 +1816,7 @@ void SmokeGenerator::writeClassFiles() {
     for (int i = 0; i < options->parts; i++) {
         std::set<std::string> includes;
         std::string classCode;
-        std::stringstream classOut(classCode);
+        std::stringstream classOut;
 
         // write the class code to a string so we can later prepend the #includes
         auto begin = includedClasses.begin() + (count * i);
@@ -1627,7 +1839,8 @@ void SmokeGenerator::writeClassFiles() {
             if (!ploc.isInvalid()) {
                 includes.insert(ploc.getFilename());
             }
-            //writeClass(classOut, klass, str, includes);
+            writeClass(classOut, klass, str, includes);
+            classCode = classOut.str();
         }
 
         // create the file
@@ -1664,3 +1877,326 @@ void SmokeGenerator::writeClassFiles() {
     }
 }
 
+void SmokeGenerator::generateGetAccessor(std::stringstream& out, const std::string& className, const clang::CXXMethodDecl* method,
+                                          const clang::QualType type, int index) const {
+    out << "    ";
+    std::string fieldName;
+    const auto field = fieldAccessors.at(method);
+    if (method->isStatic()) {
+        out << "static ";
+    }
+    else {
+        fieldName = "this->";
+    }
+    fieldName += className + "::" + field->getNameAsString();
+    out << "void x_" << index << "(Smoke::Stack x) {\n"
+        << "        // " << getFullFunctionPrototype(method, pp()) << "\n"
+        << "        x[0]." << stackItemField(type) << " = "
+            << assignmentString(type, fieldName) << ";\n"
+        << "    }\n";
+}
+
+void SmokeGenerator::generateSetAccessor(std::stringstream& out, const std::string& className, const clang::CXXMethodDecl* method,
+                                          const clang::QualType type, int index) const {
+    out << "    ";
+    std::string fieldName;
+    const auto field = fieldAccessors.at(method);
+    if (method->isStatic()) {
+        out << "static ";
+    }
+    else {
+        fieldName = "this->";
+    }
+    fieldName += className + "::" + field->getNameAsString();
+    out << "void x_" << index << "(Smoke::Stack x) {\n"
+        << "        // " << getFullFunctionPrototype(method, pp()) << "=\n"
+        << "        " << fieldName << " = ";
+    std::string unionField = stackItemField(type);
+    std::string cast = type.getAsString(pp());
+    std::remove(cast.begin(), cast.end(), '&');
+    if (unionField == "s_class" && !type->isPointerType()) {
+        out << '*';
+        cast += '*';
+    }
+    out << '(' << cast << ')' << "x[1]." << unionField << ";\n";
+    out << "    }\n";
+}
+
+void SmokeGenerator::generateEnumMemberCall(std::stringstream& out, const std::string& className, const std::string& member, int index) const {
+    out << "    static void x_" << index << "(Smoke::Stack x) {\n"
+        << "        x[0].s_enum = (long)";
+
+    if (!className.empty()) {
+        out  << className << "::";
+    }
+
+    out << member << ";\n"
+        << "    }\n";
+}
+
+void SmokeGenerator::generateVirtualMethod(std::stringstream& out, const clang::CXXMethodDecl* meth, std::set<std::string>& includes) const {
+    std::string x_params;
+    std::string x_list;
+    std::string type = meth->getReturnType().getAsString(pp());
+    if (meth->getReturnType()->getAsCXXRecordDecl()) {
+        auto ploc = ctx->getSourceManager().getPresumedLoc(meth->getReturnType()->getAsCXXRecordDecl()->getSourceRange().getBegin());
+        if (!ploc.isInvalid()) {
+            includes.insert(ploc.getFilename());
+        }
+    }
+
+    out << "    virtual " << type << " " << meth->getNameAsString() << "(";
+    for (int i = 0; i < meth->parameters().size(); i++) {
+        if (i > 0) {
+            out << ", "; x_list.append(", ");
+        }
+        const auto& param = meth->parameters()[i];
+
+        if (param->getType()->getAsCXXRecordDecl()) {
+            auto ploc = ctx->getSourceManager().getPresumedLoc(param->getType()->getAsCXXRecordDecl()->getSourceRange().getBegin());
+            if (!ploc.isInvalid()) {
+                includes.insert(ploc.getFilename());
+            }
+        }
+
+        out << param->getType().getAsString(pp()) << " x" << i + 1;
+        x_params += "        x[" + std::to_string(i + 1) + "]." + stackItemField(param->getType()) + " = " +
+            assignmentString(param->getType(), "x" + std::to_string(i + 1)) + ";\n";
+        x_list += "x" + std::to_string(i + 1);
+    }
+    out << ") ";
+    if (meth->isConst()) {
+        out << "const ";
+    }
+    //if (meth.hasExceptionSpec()) {
+    //    out << "throw(";
+    //    for (int i = 0; i < meth.exceptionTypes().count(); i++) {
+    //        if (i > 0) out << ", ";
+    //        out << meth.exceptionTypes()[i].toString();
+    //    }
+    //    out << ") ";
+    //}
+    out << "{\n";
+    out << "        Smoke::StackItem x[" + std::to_string(meth->parameters().size() + 1) + "];\n";
+    out << x_params;
+
+    if (meth->isPure() && meth->isVirtual()) {
+        out << "        this->_binding->callMethod(" + std::to_string(methodIdx.at(meth)) + ", (void*)this, x, true /*pure virtual*/);\n";
+        if (!meth->getReturnType()->isVoidType()) {
+            std::string field = stackItemField(meth->getReturnType());
+            if (!meth->getReturnType()->isPointerType() && field == "s_class") {
+                std::string tmpType = type;
+                if (meth->getReturnType()->isReferenceType()) {
+                    std::remove(tmpType.begin(), tmpType.end(), '&');
+                }
+                tmpType += '*';
+                out << "        " << tmpType << " xptr = (" << tmpType << ")x[0].s_class;\n";
+                out << "        " << type << " xret(*xptr);\n";
+                out << "        delete xptr;\n";
+                out << "        return xret;\n";
+            } else {
+                out << "        return (" + type + ")x[0]." + stackItemField(meth->getReturnType()) + ";\n";
+            }
+        }
+    } else {
+        out << std::string("        if (this->_binding->callMethod(" + std::to_string(methodIdx.at(meth)) + ", (void*)this, x)) ");
+        if (meth->getReturnType()->isVoidType()) {
+            out << "return;\n";
+        } else {
+            std::string field = stackItemField(meth->getReturnType());
+            if (!meth->getReturnType()->isPointerType() && field == "s_class") {
+                std::string tmpType = type;
+                if (meth->getReturnType()->isReferenceType()) {
+                    std::remove(tmpType.begin(), tmpType.end(), '&');
+                }
+                tmpType += '*';
+                out << "{\n";
+                out << "            " << tmpType << " xptr = (" << tmpType << ")x[0].s_class;\n";
+                out << "            " << type << " xret(*xptr);\n";
+                out << "            delete xptr;\n";
+                out << "            return xret;\n";
+                out << "        }\n";
+            } else {
+                out << "return (" + type + ")x[0]." + stackItemField(meth->getReturnType()) + ";\n";
+            }
+        }
+        out << "        ";
+        if (!meth->getReturnType()->isVoidType()) {
+            out << "return ";
+        }
+        out << "this->" + meth->getQualifiedNameAsString() + "(" + x_list + ");\n";
+    }
+    out << "    }\n";
+}
+
+void SmokeGenerator::writeClass(std::stringstream& out, const clang::NamedDecl* decl, const std::string& className, std::set<std::string>& includes) {
+
+    const auto klass = clang::dyn_cast<clang::CXXRecordDecl>(decl);
+    const auto nspace = clang::dyn_cast<clang::NamespaceDecl>(decl);
+    const auto context = clang::dyn_cast<clang::DeclContext>(decl);
+
+    std::string underscoreName = std::string(className);
+    std::replace(underscoreName.begin(), underscoreName.end(), ':', '_');
+    const std::string smokeClassName = "x_" + underscoreName;
+
+    std::stringstream switchOut;
+
+    const clang::CXXDestructorDecl *destructor = nullptr;
+    out << "class " << smokeClassName;
+    if (klass) {
+        destructor = klass->getDestructor();
+
+        out << " : public " << className;
+        if (hasClassVirtualDestructor(klass) && destructor->getAccess() == clang::AS_public) {
+            out << ", public __internal_SmokeClass";
+        }
+    }
+    out << " {\n";
+    if (klass && canClassBeInstantiated(klass)) {
+        out << "    SmokeBinding* _binding;\n";
+        out << "public:\n";
+        out << "    void x_0(Smoke::Stack x) {\n";
+        out << "        // set the smoke binding\n";
+        out << "        _binding = (SmokeBinding*)x[1].s_class;\n";
+        out << "    }\n";
+
+        switchOut << "        case 0: xself->x_0(args);\tbreak;\n";
+    } else {
+        out << "public:\n";
+    }
+
+    std::vector<const clang::FunctionDecl *> functions;
+    if (klass) {
+        functions.insert(functions.end(), klass->method_begin(), klass->method_end());
+    }
+    else if (nspace) {
+        functions.insert(functions.end(), function_iterator(nspace->decls_begin()), function_iterator(nspace->decls_end()));
+    }
+    int xcall_index = 1;
+    for (const auto& function : functions) {
+        if (function->getAccess() == clang::AS_private) {
+            continue;
+        }
+        if (clang::isa<clang::CXXDestructorDecl>(function)) {
+            continue;
+        }
+        const auto& meth = clang::dyn_cast<clang::CXXMethodDecl>(function);
+        if (meth && meth->isCopyAssignmentOperator() && meth->isImplicit()) {
+            continue;
+        }
+        switchOut << "        case " << xcall_index << ": "
+                  << ((meth && (meth->isStatic() || clang::isa<clang::CXXConstructorDecl>(meth))) ? smokeClassName + "::" : "xself->")
+                  << "x_" << xcall_index << "(args);\tbreak;\n";
+        if (fieldAccessors.count(meth)) {
+            // accessor method?
+            if (meth->getNameAsString().compare(0, 3, "set") == 0) {
+                generateSetAccessor(out, className, meth, meth->parameters()[0]->getType(), xcall_index);
+            } else {
+                generateGetAccessor(out, className, meth, meth->getReturnType(), xcall_index);
+            }
+        } else {
+            generateMethod(out, className, smokeClassName, meth, xcall_index, includes);
+        }
+        xcall_index++;
+    }
+
+    std::stringstream enumOut;
+    bool enumFound = false;
+    for (const auto* e : enum_range(enum_iterator(context->decls_begin()), enum_iterator(context->decls_end()))) {
+        if (e->getAccess() == clang::AS_private) {
+            continue;
+        }
+
+        enumFound = true;
+
+        for (const auto& member : e->enumerators()) {
+            switchOut << "        case " << xcall_index << ": " << smokeClassName <<  "::x_" << xcall_index << "(args);\tbreak;\n";
+            //if (e->getParent()->getAsCXXRecordDecl()) {
+            generateEnumMemberCall(out, className, member->getQualifiedNameAsString(), xcall_index++);
+            //}
+            //else {
+            //    generateEnumMemberCall(out, e->nameSpace(), member.name(), xcall_index++);
+            //}
+        }
+
+        // only generate the xenum_call if the enum has a valid name
+        if (e->getNameAsString().empty()) {
+            continue;
+        }
+
+        // xenum_operation method code
+        std::string enumString = e->getQualifiedNameAsString();
+        auto enumType = getCanonicalType(clang::QualType(e->getTypeForDecl(), 0));
+        if (movedEnums.count(enumType)) {
+            enumType = movedEnums.at(enumType);
+        }
+        if (!typeIndex.count(enumType)) {
+            llvm::outs() << "missing enum: " << enumString << "\n";
+            continue;
+        }
+        enumOut << "        case " << typeIndex.at(enumType) << ": //" << enumString << '\n';
+        enumOut << "            switch(xop) {\n";
+        enumOut << "                case Smoke::EnumNew:\n";
+        enumOut << "                    xdata = (void*)new " << enumString << ";\n";
+        enumOut << "                    break;\n";
+        enumOut << "                case Smoke::EnumDelete:\n";
+        enumOut << "                    delete (" << enumString << "*)xdata;\n";
+        enumOut << "                    break;\n";
+        enumOut << "                case Smoke::EnumFromLong:\n";
+        enumOut << "                    *(" << enumString << "*)xdata = (" << enumString << ")xvalue;\n";
+        enumOut << "                    break;\n";
+        enumOut << "                case Smoke::EnumToLong:\n";
+        enumOut << "                    xvalue = (long)*(" << enumString << "*)xdata;\n";
+        enumOut << "                    break;\n";
+        enumOut << "            }\n";
+        enumOut << "            break;\n";
+    }
+
+    if (klass) {
+        for (const auto meth : virtualMethodsForClass(klass)) {
+            generateVirtualMethod(out, meth, includes);
+        }
+    }
+
+    // this class contains enums, write out an xenum_operation method
+    if (enumFound) {
+        out << "    static void xenum_operation(Smoke::EnumOperation xop, Smoke::Index xtype, void *&xdata, long &xvalue) {\n";
+        out << "        switch(xtype) {\n";
+        out << enumOut.str();
+        out << "        }\n";
+        out << "    }\n";
+    }
+
+    // destructor
+    // if the class can't be instanstiated, a callback when it's deleted is unnecessary
+    if (klass && canClassBeInstantiated(klass)) {
+        out << "    ~" << smokeClassName << "() ";
+        //if (destructor && destructor->hasExceptionSpec()) {
+        //    out << "throw(";
+        //    for (int i = 0; i < destructor->exceptionTypes().count(); i++) {
+        //        if (i > 0) out << ", ";
+        //        out << destructor->exceptionTypes()[i].toString();
+        //    }
+        //    out << ") ";
+        //}
+        out << "{ this->_binding->deleted(" + std::to_string(classIndex[className]) + ", (void*)this); }\n";
+    }
+    out << "};\n";
+
+    if (enumFound) {
+        out << "void xenum_" << underscoreName << "(Smoke::EnumOperation xop, Smoke::Index xtype, void *&xdata, long &xvalue) {\n";
+        out << "    " << smokeClassName << "::xenum_operation(xop, xtype, xdata, xvalue);\n";
+        out << "}\n";
+    }
+
+    // xcall_class function
+    out << "void xcall_" << underscoreName << "(Smoke::Index xi, void *obj, Smoke::Stack args) {\n";
+    out << "    " << smokeClassName << " *xself = (" << smokeClassName << "*)obj;\n";
+    out << "    switch(xi) {\n";
+    out << switchOut.str();
+    if (klass && destructor->getAccess() == clang::AS_public) {
+        out << "        case " << xcall_index << ": delete (" << className << "*)xself;\tbreak;\n";
+    }
+    out << "    }\n";
+    out << "}\n";
+}
